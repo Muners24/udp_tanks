@@ -57,7 +57,10 @@ int main()
         tanque = tanques.begin();
         while (tanque != tanques.end())
         {
-            (*tanque).second.draw();
+            if(!(*tanque).second.should_del)
+            {
+                (*tanque).second.draw();
+            }
             tanque++;
         }
 

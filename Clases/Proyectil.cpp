@@ -68,18 +68,9 @@ void Proyectil::draw()
 
 bool Proyectil::operator==(const Proyectil& p) const
 {
-    if(centro.x == p.centro.x)
+    if(this == &p)
     {
-        if(centro.y == p.centro.y)
-        {
-            if(vel.x == p.vel.x)
-            {
-                if(vel.y == p.vel.y)
-                {
-                    return true;
-                }
-            }
-        }
+        return true;
     }
     return false;
 }

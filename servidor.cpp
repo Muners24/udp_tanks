@@ -15,17 +15,17 @@
 
 const int SERVER_PORT = 12345;
 
-using std::thread;
 using std::list;
 using std::map;
+using std::thread;
 
-void comunicacionClient(SOCKET clientSocket, int numeroCliente);
+void comunicacionClient(SOCKET clientSocket, Tanque *t_ptr);
 void initMapa(bool map[int(RALTO)][int(RANCHO)]);
 SOCKET conexionCliente();
 void configServer();
 void updateJuego();
 
-map<int, Tanque> tanques;
+list<Tanque*> tanques;
 list<Proyectil> proyectiles;
 
 SOCKET listeningSocket;
@@ -36,12 +36,11 @@ int main()
     {
         configServer();
     }
-    catch(const std::exception& e)
+    catch (const std::exception &e)
     {
         std::cerr << e.what() << '\n';
         return 1;
     }
-    
 
     list<thread> clientThreads;
     thread entradaCliente;
@@ -53,19 +52,22 @@ int main()
 
     while (true)
     {
+        Tanque *nuevo = NULL;
         try
         {
             clientSocket = conexionCliente();
-            tanques[++i] = Tanque(SPAWN1, RED);
+            nuevo = new Tanque(SPAWN1, RED);
+            tanques.push_back(nuevo);
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             std::cerr << e.what() << '\n';
         }
 
         try
         {
-            clientThreads.emplace_back(comunicacionClient, clientSocket, i);
+            if (nuevo != NULL)
+                clientThreads.emplace_back(comunicacionClient, clientSocket, nuevo);
         }
         catch (const std::exception &e)
         {
@@ -132,15 +134,16 @@ SOCKET conexionCliente()
     return clientSocket;
 }
 
-void comunicacionClient(SOCKET clientSocket, int numeroCliente)
+void comunicacionClient(SOCKET clientSocket, Tanque *t_ptr)
 {
     auto proyectil = proyectiles.begin();
     char buffer[sizeof(Tanque)];
     auto it = tanques.begin();
+    bool conectado = true;
     int bits[5];
     int bytes;
 
-    while (true)
+    while (conectado)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(8));
         // comunicacion input
@@ -150,16 +153,20 @@ void comunicacionClient(SOCKET clientSocket, int numeroCliente)
             it = tanques.begin();
             while (it != tanques.end())
             {
-                if ((*it).first == numeroCliente)
+                if ((*it) == t_ptr)
                 {
-                    (*it).second.left_b = buffer[0] == '1' ? true : false;
-                    (*it).second.acel_b = buffer[1] == '1' ? true : false;
-                    (*it).second.ret_b = buffer[2] == '1' ? true : false;
-                    (*it).second.right_b = buffer[3] == '1' ? true : false;
-                    (*it).second.click_b = buffer[4] == '1' ? true : false;
+                    (*it)->left_b = buffer[0] == '1' ? true : false;
+                    (*it)->acel_b = buffer[1] == '1' ? true : false;
+                    (*it)->ret_b = buffer[2] == '1' ? true : false;
+                    (*it)->right_b = buffer[3] == '1' ? true : false;
+                    (*it)->click_b = buffer[4] == '1' ? true : false;
                 }
                 it++;
             }
+        }
+        else if (bytes == 0)
+        {
+            conectado = false;
         }
 
         // comunicacion tanques
@@ -168,8 +175,8 @@ void comunicacionClient(SOCKET clientSocket, int numeroCliente)
         it = tanques.begin();
         while (it != tanques.end())
         {
-            const Tanque &tanque = (*it).second;
-            send(clientSocket, reinterpret_cast<const char *>(&tanque), sizeof(Tanque), 0);
+            const Tanque *tanque = (*it);
+            send(clientSocket, reinterpret_cast<const char *>(&(*tanque)), sizeof(Tanque), 0);
             it++;
         }
 
@@ -186,6 +193,7 @@ void comunicacionClient(SOCKET clientSocket, int numeroCliente)
     }
 
     closesocket(clientSocket);
+    t_ptr->should_del = true;
 }
 
 void initMapa(bool map[int(RALTO)][int(RANCHO)])
@@ -219,18 +227,27 @@ void updateJuego()
         it = tanques.begin();
         while (it != tanques.end())
         {
-            if ((*it).second.click_b)
+            if (!(*it)->should_del)
             {
-                try
+                if ((*it)->click_b)
                 {
-                    Proyectil nuevo = (*it).second.disparar();
-                    proyectiles.push_front(nuevo);
+                    try
+                    {
+                        Proyectil nuevo = (*it)->disparar();
+                        proyectiles.push_front(nuevo);
+                    }
+                    catch (const std::exception &e)
+                    {
+                    }
                 }
-                catch (const std::exception &e){}
+                (*it)->update(mapa);
+                (*it)->draw();
+                it++;
             }
-            (*it).second.update(mapa);
-            (*it).second.draw();
-            it++;
+            else
+            {
+                it = tanques.erase(it);
+            }
         }
 
         disp_it = proyectiles.begin();

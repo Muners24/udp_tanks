@@ -45,11 +45,12 @@ public:
     bool ret_b;
     bool left_b;
     bool right_b;
+    bool should_del;
     Tanque(Vector2 spawn, Color color);
     Tanque(){};
     Proyectil disparar();
     //void input();
     void update(bool map[int(RALTO)][int(RANCHO)]);
     void draw();
-    
+    bool operator==(const Tanque &t) const;
 };

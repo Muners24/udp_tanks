@@ -12,7 +12,7 @@ Tanque::Tanque(Vector2 spawn, Color color)
     pos.width = TANKW;
     pos.height = TANKH;
     direccion = 0;
-
+    should_del = false;
     this->color = color;
     disp_timer = 0;
     vel.x = 0.f;
@@ -242,7 +242,14 @@ Proyectil Tanque::disparar()
             return nuevo;
         }
     }
-
     throw std::runtime_error("ataque en cd");
-    
+}
+
+bool Tanque::operator==(const Tanque &t) const
+{
+    if(this == &t)
+    {
+        return true;
+    }
+    return false;
 }
