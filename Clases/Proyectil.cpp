@@ -65,3 +65,21 @@ void Proyectil::draw()
 {
     DrawCircle(centro.x,centro.y,radio,color);
 }
+
+bool Proyectil::operator==(const Proyectil& p) const
+{
+    if(centro.x == p.centro.x)
+    {
+        if(centro.y == p.centro.y)
+        {
+            if(vel.x == p.vel.x)
+            {
+                if(vel.y == p.vel.y)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}

@@ -40,12 +40,12 @@ void Tanque::calcularDireccion()
 {
     if (left_b)
     {
-        direccion += DEG2RAD*1.5;
+        direccion += DEG2RAD*DELTA_DIR;
         direccion = direccion > 2 * PI ? direccion - 2 * PI : direccion;
     }
     if (right_b)
     {
-        direccion -= DEG2RAD*1.5;
+        direccion -= DEG2RAD*DELTA_DIR;
         direccion = direccion < 0 ? direccion + 2 * PI : direccion;
     }
 }
@@ -53,13 +53,14 @@ void Tanque::calcularDireccion()
 void Tanque::update(bool map[int(RALTO)][int(RANCHO)])
 {
     //input();
+    calcularDireccion();
+    vectorUnitario();
     movimiento();
     area();
     colisionBorde(map);
-    calcularDireccion();
-    vectorUnitario();
+    area();
     calcularVelocidad();
-    disparar();
+    disp_timer++;
 }
 
 /*
@@ -228,7 +229,7 @@ void Tanque::colisionBorde(bool map[int(RALTO)][int(RANCHO)])
     }
 }
 
-void Tanque::disparar()
+Proyectil Tanque::disparar()
 {
     disp_timer++;
 
@@ -237,19 +238,11 @@ void Tanque::disparar()
         if (click_b)
         {
             Proyectil nuevo(canon(), direccion, color);
-            proyectiles.push_front(nuevo);
             disp_timer = 0;
+            return nuevo;
         }
     }
+
+    throw std::runtime_error("ataque en cd");
     
-    auto it = proyectiles.begin();
-    while (it != proyectiles.end())
-    {
-        if (!(*it).should_del)
-        {
-            (*it).draw();
-            (*it).update();
-        }
-        it++;
-    }
 }

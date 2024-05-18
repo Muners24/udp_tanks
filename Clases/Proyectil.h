@@ -22,4 +22,6 @@ public:
     void update();
     void draw();
     Proyectil(Vector2 fuente,float direccion,Color color);
+    Proyectil(){};
+    bool operator==(const Proyectil& p) const;
 };

@@ -1,53 +1,107 @@
-#define RAYLIB_NO_WINDOWS_CONFLICTS
-#include <iostream>
-#include <string>
+#include "C:\raylib\w64devkit\x86_64-w64-mingw32\include\raylib.h"
+#include "Clases/Proyectil.h"
+#include "Clases/Tanque.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include "C:\raylib\w64devkit\x86_64-w64-mingw32\include\raylib.h"
-#include "Clases/Tanque.h"
-#include "Clases/Proyectil.h"
+#include <iostream>
+#include <string>
 #include "t.h"
-#include <thread>
 
 #pragma comment(lib, "Ws2_32.lib")
 
 const std::string SERVER_IP = "127.0.0.1";
 const int SERVER_PORT = 12345;
 using std::string;
-using std::thread;
 using std::to_string;
 
 void initMapa(bool map[int(RALTO)][int(RANCHO)]);
-void window();
 void drawMapa(bool map[int(RALTO)][int(RANCHO)]);
 void input(int bits[]);
+void configConexion();
+void comunicacion();
 
-SOCKET clientSocket;
-
+map<int, Proyectil> proyectiles;
 map<int, Tanque> tanques;
+int cont_proyectiles = 0;
 int cont_tanques = 0;
+SOCKET clientSocket;
 
 int main()
 {
-    // Inicializar Winsock
+    try
+    {
+        configConexion();
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << '\n';
+        return 1;
+    }
+
+    SetTargetFPS(60);
+    InitWindow(RANCHO, RALTO, "Raylib y Winsock Ejemplo");
+
+    bool mapa[int(RALTO)][int(RANCHO)] = {false};
+    map<int, Tanque>::iterator tanque;
+    map<int, Proyectil>::iterator disp_it;
+    char buffer[10];
+    initMapa(mapa);
+
+    while (!WindowShouldClose())
+    {
+        comunicacion();
+        BeginDrawing();
+        ClearBackground(BLACK);
+        DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
+
+        tanque = tanques.begin();
+        while (tanque != tanques.end())
+        {
+            (*tanque).second.draw();
+            tanque++;
+        }
+
+        disp_it = proyectiles.begin();
+        while (disp_it != proyectiles.end())
+        {
+            if (!(*disp_it).second.should_del)
+            {
+                (*disp_it).second.draw();
+            }
+            disp_it++;
+        }
+        drawMapa(mapa);
+        EndDrawing();
+        tanques.clear();
+        proyectiles.clear();
+    }
+
+    closesocket(clientSocket);
+    WSACleanup();
+    CloseWindow();
+    return 0;
+}
+
+void configConexion()
+{
     WSADATA wsData;
+    sockaddr_in serverAddr;
+
+    // Inicializar Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsData) != 0)
     {
-        std::cerr << "Error al inicializar Winsock" << std::endl;
-        return 1;
+        throw std::runtime_error("Error al inicializar Winsock");
     }
 
     // Crear el socket TCP
     clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET)
     {
-        std::cerr << "Error al crear el socket" << std::endl;
         WSACleanup();
-        return 1;
+        throw std::runtime_error("Error al crear el socket");
     }
 
     // Configurar la dirección del servidor
-    sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
     serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP.c_str());
@@ -55,103 +109,10 @@ int main()
     // Conectar al servidor
     if (connect(clientSocket, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR)
     {
-        std::cerr << "Error al conectar al servidor" << std::endl;
         closesocket(clientSocket);
         WSACleanup();
-        return 1;
+        throw std::runtime_error("Error al conectar al servidor");
     }
-
-    thread updateThread;
-
-    char buffer[sizeof(Tanque)];
-    string respuesta;
-    int bytes;
-    int i;
-    auto it = tanques.begin();
-    int bits[5];
-    string input_buffer;
-    int recibido = 0;
-    int envio = 0;
-    try
-    {
-        updateThread = thread(window);
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "excepcion: " << e.what() << std::endl;
-    }
-
-    while (true)
-    {
-        bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-        if (bytes == 10)
-        {
-            cont_tanques = atoi(buffer);
-            for (i = 0; i < cont_tanques; i++)
-            {
-                bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-                if (bytes == sizeof(Tanque))
-                {
-                    memcpy(&tanques[i], buffer, sizeof(Tanque));
-                }
-            }
-        }
-
-        input(bits);
-
-        input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
-
-        send(clientSocket, input_buffer.c_str(), 5, 0);
-    }
-    closesocket(clientSocket);
-    WSACleanup();
-    return 0;
-}
-
-void window()
-{
-    SetTargetFPS(60);
-    InitWindow(RANCHO, RALTO, "Raylib y Winsock Ejemplo");
-
-    bool mapa[int(RALTO)][int(RANCHO)] = {false};
-    //map<int, list<Proyectil>> map_proyectiles;
-    //auto it_map_proyectil = map_proyectiles.begin();
-    auto tanque = tanques.begin();
-    char buffer[10];
-    initMapa(mapa);
-    int i;
-
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
-        ClearBackground(BLACK);
-        tanque = tanques.begin();
-        i = 1;
-        while (tanque != tanques.end())
-        {
-            (*tanque).second.draw();
-            //map_proyectiles[i] = (*tanque).second.proyectiles;
-            tanque++;
-            i++;
-        }
-
-        drawMapa(mapa);
-        DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
-        EndDrawing();
-
-        //it_map_proyectil = map_proyectiles.begin();
-        //while (it_map_proyectil != map_proyectiles.end())
-        {
-            //auto it_lista_proyectil = (*it_map_proyectil).second.begin();
-            //while (it_lista_proyectil != (*it_map_proyectil).second.end())
-            {
-            //    (*it_lista_proyectil).draw();
-            //    it_lista_proyectil++;
-            }
-            //it_map_proyectil++;
-        }
-    }
-    CloseWindow();
 }
 
 void initMapa(bool map[int(RALTO)][int(RANCHO)])
@@ -191,4 +152,48 @@ void input(int bits[])
     bits[2] = IsKeyDown(KEY_S) ? 1 : 0;
     bits[3] = IsKeyDown(KEY_D) ? 1 : 0;
     bits[4] = IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? 1 : 0;
+}
+
+void comunicacion()
+{
+    char buffer[sizeof(Tanque)];
+    string input_buffer;
+    int bits[5];
+    int bytes;
+    int i;
+
+    // sendinput
+    input(bits);
+    input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
+    send(clientSocket, input_buffer.c_str(), 6, 0);
+
+    // recvTanques
+    bytes = recv(clientSocket, buffer, 10, 0);
+    if (bytes == 10)
+    {
+        cont_tanques = atoi(buffer);
+        for (i = 0; i < cont_tanques; i++)
+        {
+            bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
+            if (bytes == sizeof(Tanque))
+            {
+                memcpy(&tanques[i], buffer, sizeof(Tanque));
+            }
+        }
+    }
+
+    // recvProyectiles
+    bytes = recv(clientSocket, buffer, 32, 0);
+    if (bytes == 32)
+    {
+        cont_proyectiles = atoi(buffer);
+        for (i = 0; i < cont_proyectiles; i++)
+        {
+            bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
+            if (bytes == sizeof(Proyectil))
+            {
+                memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+            }
+        }
+    }
 }

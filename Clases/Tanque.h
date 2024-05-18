@@ -45,10 +45,9 @@ public:
     bool ret_b;
     bool left_b;
     bool right_b;
-    list<Proyectil> proyectiles;
     Tanque(Vector2 spawn, Color color);
     Tanque(){};
-    void disparar();
+    Proyectil disparar();
     //void input();
     void update(bool map[int(RALTO)][int(RANCHO)]);
     void draw();

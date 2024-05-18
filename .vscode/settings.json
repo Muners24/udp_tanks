@@ -73,5 +73,6 @@
         "variant": "cpp",
         "any": "cpp",
         "chrono": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
