@@ -27,7 +27,7 @@ using std::list;
 
 #define VEL_PYTL 4.f
 #define RAD_PYTL 8.f
-#define DELTA_DIR 2.f
+#define DELTA_DIR 2.2
 #define VEL_ATK 60
 
 #define SPAWN1 {RANCHO / 2.0, RALTO / 2.0}

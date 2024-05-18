@@ -9,7 +9,7 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-const std::string SERVER_IP = "127.0.0.1";
+const std::string SERVER_IP = "192.168.100.37";
 const int SERVER_PORT = 12345;
 using std::string;
 using std::to_string;

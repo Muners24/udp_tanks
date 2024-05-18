@@ -15,9 +15,9 @@
 
 const int SERVER_PORT = 12345;
 
+using std::thread;
 using std::list;
 using std::map;
-using std::thread;
 
 void comunicacionClient(SOCKET clientSocket, Tanque *t_ptr);
 void initMapa(bool map[int(RALTO)][int(RANCHO)]);
@@ -25,8 +25,8 @@ SOCKET conexionCliente();
 void configServer();
 void updateJuego();
 
-list<Tanque*> tanques;
 list<Proyectil> proyectiles;
+list<Tanque*> tanques;
 
 SOCKET listeningSocket;
 
@@ -246,7 +246,9 @@ void updateJuego()
             }
             else
             {
+                Tanque *temp = (*it);
                 it = tanques.erase(it);
+                free(temp);
             }
         }
 
