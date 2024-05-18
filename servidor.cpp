@@ -213,15 +213,15 @@ void initMapa(bool map[int(RALTO)][int(RANCHO)])
 
 void updateJuego()
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(8));
-
+    
     auto it = tanques.begin();
     auto disp_it = proyectiles.begin();
     bool mapa[int(RALTO)][int(RANCHO)] = {false};
     initMapa(mapa);
 
-    while (!IsKeyPressed(KEY_ESCAPE))
+    while (true)
     {
+        WaitTime(0.008);
         //BeginDrawing();
         //ClearBackground(BLACK);
         it = tanques.begin();
