@@ -213,17 +213,17 @@ void initMapa(bool map[int(RALTO)][int(RANCHO)])
 
 void updateJuego()
 {
-    SetTargetFPS(60);
-    InitWindow(RANCHO, RALTO, "servidor");
+    std::this_thread::sleep_for(std::chrono::milliseconds(8));
+
     auto it = tanques.begin();
     auto disp_it = proyectiles.begin();
     bool mapa[int(RALTO)][int(RANCHO)] = {false};
     initMapa(mapa);
 
-    while (!WindowShouldClose())
+    while (!IsKeyPressed(KEY_ESCAPE))
     {
-        BeginDrawing();
-        ClearBackground(BLACK);
+        //BeginDrawing();
+        //ClearBackground(BLACK);
         it = tanques.begin();
         while (it != tanques.end())
         {
@@ -241,7 +241,7 @@ void updateJuego()
                     }
                 }
                 (*it)->update(mapa);
-                (*it)->draw();
+                //(*it)->draw();
                 it++;
             }
             else
@@ -258,7 +258,7 @@ void updateJuego()
             if (!(*disp_it).should_del)
             {
                 (*disp_it).draw();
-                (*disp_it).update();
+                //(*disp_it).update();
                 disp_it++;
             }
             else
@@ -269,5 +269,5 @@ void updateJuego()
         EndDrawing();
     }
 
-    CloseWindow();
+    //CloseWindow();
 }
