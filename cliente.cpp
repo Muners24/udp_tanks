@@ -27,11 +27,12 @@ void comunicacion();
 
 map<int, Proyectil> proyectiles;
 map<int, Tanque> tanques;
+map<int, Proyectil> proyectiles_actual;
+map<int, Tanque> tanques_actual;
+
 int cont_proyectiles = 0;
 int cont_tanques = 0;
 SOCKET clientSocket;
-
-atomic<bool> hiloPrincipal = true;
 
 int main()
 {
@@ -56,7 +57,7 @@ int main()
 
     thread mensajes;
     mensajes = thread(comunicacion);
-    
+
     while (!WindowShouldClose())
     {
         BeginDrawing();
@@ -172,11 +173,12 @@ void comunicacion()
     int bytes;
     int i;
 
-    while(true)
+    while (true)
     {
         auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
-        //tanques.clear();
-        //proyectiles.clear();
+        tanques_actual.clear();
+        proyectiles_actual.clear();
+
         //  sendinput
         input(bits);
         input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
@@ -192,7 +194,7 @@ void comunicacion()
                 bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
                 if (bytes == sizeof(Tanque))
                 {
-                    memcpy(&tanques[i], buffer, sizeof(Tanque));
+                    memcpy(&tanques_actual[i], buffer, sizeof(Tanque));
                 }
             }
         }
@@ -207,12 +209,13 @@ void comunicacion()
                 bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
                 if (bytes == sizeof(Proyectil))
                 {
-                    memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+                    memcpy(&proyectiles_actual[i], buffer, sizeof(Proyectil));
                 }
             }
         }
-        auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
-
+        proyectiles = proyectiles_actual;
+        tanques = tanques_actual;
+        auto endMillis = std::chrono::high_resolution_clock::now();
         auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
         std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
     }
