@@ -54,17 +54,11 @@ int main()
     char buffer[10];
     initMapa(mapa);
 
-    int i;
+    thread mensajes;
+    mensajes = thread(comunicacion);
+    
     while (!WindowShouldClose())
     {
-
-        // Medición en milisegundos
-        auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
-        comunicacion();
-        auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
-
-        auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
-        std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
         BeginDrawing();
         ClearBackground(BLACK);
         DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
@@ -90,7 +84,6 @@ int main()
         }
         drawMapa(mapa);
         EndDrawing();
-        i++;
     }
 
     closesocket(clientSocket);
@@ -179,40 +172,48 @@ void comunicacion()
     int bytes;
     int i;
 
-    tanques.clear();
-    proyectiles.clear();
-    //  sendinput
-    input(bits);
-    input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
-    send(clientSocket, input_buffer.c_str(), 6, 0);
-
-    // recvTanques
-    bytes = recv(clientSocket, buffer, 10, 0);
-    if (bytes == 10)
+    while(true)
     {
-        cont_tanques = atoi(buffer);
-        for (i = 0; i < cont_tanques; i++)
+        auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
+        tanques.clear();
+        proyectiles.clear();
+        //  sendinput
+        input(bits);
+        input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
+        send(clientSocket, input_buffer.c_str(), 6, 0);
+
+        // recvTanques
+        bytes = recv(clientSocket, buffer, 10, 0);
+        if (bytes == 10)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-            if (bytes == sizeof(Tanque))
+            cont_tanques = atoi(buffer);
+            for (i = 0; i < cont_tanques; i++)
             {
-                memcpy(&tanques[i], buffer, sizeof(Tanque));
+                bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
+                if (bytes == sizeof(Tanque))
+                {
+                    memcpy(&tanques[i], buffer, sizeof(Tanque));
+                }
             }
         }
-    }
 
-    // recvProyectiles
-    bytes = recv(clientSocket, buffer, 32, 0);
-    if (bytes == 32)
-    {
-        cont_proyectiles = atoi(buffer);
-        for (i = 0; i < cont_proyectiles; i++)
+        // recvProyectiles
+        bytes = recv(clientSocket, buffer, 32, 0);
+        if (bytes == 32)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
-            if (bytes == sizeof(Proyectil))
+            cont_proyectiles = atoi(buffer);
+            for (i = 0; i < cont_proyectiles; i++)
             {
-                memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+                bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
+                if (bytes == sizeof(Proyectil))
+                {
+                    memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+                }
             }
         }
+        auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
+
+        auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
+        std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
     }
 }
