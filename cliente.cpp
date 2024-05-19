@@ -57,19 +57,14 @@ int main()
     int i;
     while (!WindowShouldClose())
     {
-        if (i > 1)
-        {
-            tanques.clear();
-            proyectiles.clear();
-            // Medición en milisegundos
-            auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
-            comunicacion();
-            auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
 
-            auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
-            std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
-            i = 0;
-        }
+        // Medición en milisegundos
+        auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
+        comunicacion();
+        auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
+
+        auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
+        std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
         BeginDrawing();
         ClearBackground(BLACK);
         DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
@@ -184,6 +179,8 @@ void comunicacion()
     int bytes;
     int i;
 
+    tanques.clear();
+    proyectiles.clear();
     //  sendinput
     input(bits);
     input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
