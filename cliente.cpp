@@ -7,14 +7,17 @@
 #include <string>
 #include "t.h"
 #include <thread>
+#include <atomic>
+#include <time.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 
 const std::string SERVER_IP = "192.168.100.37";
 const int SERVER_PORT = 12345;
+using std::atomic;
 using std::string;
-using std::to_string;
 using std::thread;
+using std::to_string;
 
 void initMapa(bool map[int(RALTO)][int(RANCHO)]);
 void drawMapa(bool map[int(RALTO)][int(RANCHO)]);
@@ -27,7 +30,8 @@ map<int, Tanque> tanques;
 int cont_proyectiles = 0;
 int cont_tanques = 0;
 SOCKET clientSocket;
-bool hiloPrincipal = true;
+
+atomic<bool> hiloPrincipal = true;
 
 int main()
 {
@@ -50,12 +54,22 @@ int main()
     char buffer[10];
     initMapa(mapa);
 
-    thread mensajes;
-
-    mensajes  = thread(comunicacion);
+    int i;
     while (!WindowShouldClose())
     {
-        hiloPrincipal = true;
+        if (i > 1)
+        {
+            tanques.clear();
+            proyectiles.clear();
+            // Medición en milisegundos
+            auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
+            comunicacion();
+            auto endMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo final
+
+            auto durationMillis = std::chrono::duration_cast<std::chrono::milliseconds>(endMillis - startMillis).count();
+            std::cout << "La operación tomó " << durationMillis << " milisegundos." << std::endl;
+            i = 0;
+        }
         BeginDrawing();
         ClearBackground(BLACK);
         DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
@@ -63,7 +77,7 @@ int main()
         tanque = tanques.begin();
         while (tanque != tanques.end())
         {
-            if(!(*tanque).second.should_del)
+            if (!(*tanque).second.should_del)
             {
                 (*tanque).second.draw();
             }
@@ -81,9 +95,7 @@ int main()
         }
         drawMapa(mapa);
         EndDrawing();
-        tanques.clear();
-        proyectiles.clear();
-        hiloPrincipal = false;
+        i++;
     }
 
     closesocket(clientSocket);
@@ -171,41 +183,38 @@ void comunicacion()
     int bits[5];
     int bytes;
     int i;
-    
-    while(!hiloPrincipal)
-    {
-        // sendinput
-        input(bits);
-        input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
-        send(clientSocket, input_buffer.c_str(), 6, 0);
 
-        // recvTanques
-        bytes = recv(clientSocket, buffer, 10, 0);
-        if (bytes == 10)
+    //  sendinput
+    input(bits);
+    input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
+    send(clientSocket, input_buffer.c_str(), 6, 0);
+
+    // recvTanques
+    bytes = recv(clientSocket, buffer, 10, 0);
+    if (bytes == 10)
+    {
+        cont_tanques = atoi(buffer);
+        for (i = 0; i < cont_tanques; i++)
         {
-            cont_tanques = atoi(buffer);
-            for (i = 0; i < cont_tanques; i++)
+            bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
+            if (bytes == sizeof(Tanque))
             {
-                bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-                if (bytes == sizeof(Tanque))
-                {
-                    memcpy(&tanques[i], buffer, sizeof(Tanque));
-                }
+                memcpy(&tanques[i], buffer, sizeof(Tanque));
             }
         }
+    }
 
-        // recvProyectiles
-        bytes = recv(clientSocket, buffer, 32, 0);
-        if (bytes == 32)
+    // recvProyectiles
+    bytes = recv(clientSocket, buffer, 32, 0);
+    if (bytes == 32)
+    {
+        cont_proyectiles = atoi(buffer);
+        for (i = 0; i < cont_proyectiles; i++)
         {
-            cont_proyectiles = atoi(buffer);
-            for (i = 0; i < cont_proyectiles; i++)
+            bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
+            if (bytes == sizeof(Proyectil))
             {
-                bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
-                if (bytes == sizeof(Proyectil))
-                {
-                    memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
-                }
+                memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
             }
         }
     }

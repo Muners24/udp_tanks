@@ -26,11 +26,13 @@ Tanque::Tanque(Vector2 spawn, Color color)
 
 void Tanque::draw()
 {
-    DrawRectanglePro(pos, {float(pos.width / 2.0), float(pos.height / 2.0)}, direccion*RAD2DEG * -1, color);
+    //DrawRectanglePro(pos, {float(pos.width / 2.0), float(pos.height / 2.0)}, direccion*RAD2DEG * -1, color);
+    static Texture2D asset = LoadTexture("img\\TANQUE_ROJO.png");
+    DrawTextureEx(asset,{back.vertice[1].x,back.vertice[1].y},direccion*RAD2DEG * -1,1,WHITE);
     // struct
     // DrawRectangleRec(pos, BLUE);
     // triangulos hitbox
-    DrawTriangle(front.vertice[0], front.vertice[1], front.vertice[2], GREEN);
+    //DrawTriangle(front.vertice[0], front.vertice[1], front.vertice[2], GREEN);
     // DrawTriangle(left.vertice[0], left.vertice[1], left.vertice[2], GREEN);
     // DrawTriangle(back.vertice[0], back.vertice[1], back.vertice[2], GREEN);
     // DrawTriangle(right.vertice[0], right.vertice[1], right.vertice[2], GREEN);

@@ -27,6 +27,7 @@ private:
     Vector2 v_u_side;
     
     Vector2 last_pos;
+    Image asset_tanque;
     int disp_timer;
 
     void area();
