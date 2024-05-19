@@ -145,7 +145,6 @@ void comunicacionClient(SOCKET clientSocket, Tanque *t_ptr)
 
     while (conectado)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(8));
         // comunicacion input
         bytes = recv(clientSocket, buffer, 6, 0);
         if (bytes == 6)
