@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include "t.h"
+#include <thread>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -13,6 +14,7 @@ const std::string SERVER_IP = "192.168.100.37";
 const int SERVER_PORT = 12345;
 using std::string;
 using std::to_string;
+using std::thread;
 
 void initMapa(bool map[int(RALTO)][int(RANCHO)]);
 void drawMapa(bool map[int(RALTO)][int(RANCHO)]);
@@ -25,6 +27,7 @@ map<int, Tanque> tanques;
 int cont_proyectiles = 0;
 int cont_tanques = 0;
 SOCKET clientSocket;
+bool hiloPrincipal = true;
 
 int main()
 {
@@ -38,7 +41,7 @@ int main()
         return 1;
     }
 
-    SetTargetFPS(180);
+    SetTargetFPS(60);
     InitWindow(RANCHO, RALTO, "Raylib y Winsock Ejemplo");
 
     bool mapa[int(RALTO)][int(RANCHO)] = {false};
@@ -47,9 +50,12 @@ int main()
     char buffer[10];
     initMapa(mapa);
 
+    thread mensajes;
+
+    mensajes  = thread(comunicacion);
     while (!WindowShouldClose())
     {
-        comunicacion();
+        hiloPrincipal = true;
         BeginDrawing();
         ClearBackground(BLACK);
         DrawText(itoa(GetFPS(), buffer, 10), 10, 10, 40, WHITE);
@@ -77,6 +83,7 @@ int main()
         EndDrawing();
         tanques.clear();
         proyectiles.clear();
+        hiloPrincipal = false;
     }
 
     closesocket(clientSocket);
@@ -164,38 +171,41 @@ void comunicacion()
     int bits[5];
     int bytes;
     int i;
-
-    // sendinput
-    input(bits);
-    input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
-    send(clientSocket, input_buffer.c_str(), 6, 0);
-
-    // recvTanques
-    bytes = recv(clientSocket, buffer, 10, 0);
-    if (bytes == 10)
+    
+    while(!hiloPrincipal)
     {
-        cont_tanques = atoi(buffer);
-        for (i = 0; i < cont_tanques; i++)
+        // sendinput
+        input(bits);
+        input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
+        send(clientSocket, input_buffer.c_str(), 6, 0);
+
+        // recvTanques
+        bytes = recv(clientSocket, buffer, 10, 0);
+        if (bytes == 10)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-            if (bytes == sizeof(Tanque))
+            cont_tanques = atoi(buffer);
+            for (i = 0; i < cont_tanques; i++)
             {
-                memcpy(&tanques[i], buffer, sizeof(Tanque));
+                bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
+                if (bytes == sizeof(Tanque))
+                {
+                    memcpy(&tanques[i], buffer, sizeof(Tanque));
+                }
             }
         }
-    }
 
-    // recvProyectiles
-    bytes = recv(clientSocket, buffer, 32, 0);
-    if (bytes == 32)
-    {
-        cont_proyectiles = atoi(buffer);
-        for (i = 0; i < cont_proyectiles; i++)
+        // recvProyectiles
+        bytes = recv(clientSocket, buffer, 32, 0);
+        if (bytes == 32)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
-            if (bytes == sizeof(Proyectil))
+            cont_proyectiles = atoi(buffer);
+            for (i = 0; i < cont_proyectiles; i++)
             {
-                memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+                bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
+                if (bytes == sizeof(Proyectil))
+                {
+                    memcpy(&proyectiles[i], buffer, sizeof(Proyectil));
+                }
             }
         }
     }
