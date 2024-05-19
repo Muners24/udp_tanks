@@ -38,7 +38,7 @@ int main()
         return 1;
     }
 
-    SetTargetFPS(60);
+    SetTargetFPS(180);
     InitWindow(RANCHO, RALTO, "Raylib y Winsock Ejemplo");
 
     bool mapa[int(RALTO)][int(RANCHO)] = {false};
