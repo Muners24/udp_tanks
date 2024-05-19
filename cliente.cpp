@@ -175,8 +175,8 @@ void comunicacion()
     while(true)
     {
         auto startMillis = std::chrono::high_resolution_clock::now(); // Marca de tiempo inicial
-        tanques.clear();
-        proyectiles.clear();
+        //tanques.clear();
+        //proyectiles.clear();
         //  sendinput
         input(bits);
         input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]);
