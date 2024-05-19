@@ -21,8 +21,10 @@ using std::list;
 
 
 #define TANKV 3.f
+
 #define TANKH 60.f
 #define TANKW 80.f
+
 #define TANKDIAG sqrt((TANKH/2.f)*(TANKH/2.f) + (TANKW/2.f)*(TANKW/2.f))
 
 #define VEL_PYTL 4.f
