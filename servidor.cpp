@@ -225,37 +225,13 @@ void comunicacionClient(SOCKET clientSocket)
         }
         if (bytes < 0)
         {
-            reconectar(clientSocket);
+            conectado = false;
         }
     }
 
     closesocket(clientSocket);
     t_ptr->should_del = true;
     clients_id.remove(id);
-}
-
-bool reconectar(SOCKET &sock)
-{
-    // Cierra la conexión anterior
-    closesocket(sock);
-
-    // Intenta una nueva conexión
-    for (int i = 0; i < 3; i++)
-    { // Intenta reconectar hasta 3 veces
-        try
-        {
-            mtx.lock();
-            sock = servidor.conexionCliente();
-            mtx.unlock();
-            return true;
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "Error al reconectar: " << e.what() << '\n';
-            std::this_thread::sleep_for(std::chrono::seconds(1)); // Espera antes de reintentar
-        }
-    }
-    return false;
 }
 
 void updateJuego()
