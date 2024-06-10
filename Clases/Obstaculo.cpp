@@ -3,7 +3,7 @@
 Obstaculo::Obstaculo(Vector2 inicio)
 {
     int num;
-    num = GetRandomValue(1,3);
+    num = (rand()%3)+1;
 
     this->pos.x = inicio.x;
     this->pos.y = inicio.y;
@@ -11,7 +11,7 @@ Obstaculo::Obstaculo(Vector2 inicio)
         pos.width = CASILLA;
         pos.height = CASILLA;
     } else if(num == 2){
-        if(GetRandomValue(0,1)){
+        if(rand()%2){
             pos.width = CASILLA*2;
             pos.height = CASILLA;
         }else{
@@ -19,7 +19,7 @@ Obstaculo::Obstaculo(Vector2 inicio)
             pos.height = CASILLA*2;
         }   
     } else if(num == 3){
-        if(GetRandomValue(0,1)){
+        if(rand()%2){
             pos.width = CASILLA*3;
             pos.height = CASILLA*2;
         }else{

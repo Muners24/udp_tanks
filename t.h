@@ -2,6 +2,8 @@
 #include <ws2tcpip.h>
 #include <winsock2.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <raylib.h>
 #include <iostream>
 #include <sstream>

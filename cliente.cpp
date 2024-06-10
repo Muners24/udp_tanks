@@ -58,7 +58,7 @@ int bits[7];
 
 int main()
 {
-    Client cliente("127.0.0.1", 12345);
+    Client cliente("20.163.29.146", 12345);
 
     try
     {
@@ -240,7 +240,6 @@ void comunicacion()
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
         ms = "MS:" + to_string(duracion.count());
-        std::this_thread::sleep_for(std::chrono::milliseconds(4));
     }
 }
 

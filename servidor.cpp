@@ -11,6 +11,7 @@
 const int SERVER_PORT = 12345;
 
 void playEffect(Sound s, Vector2 destino, Vector2 origen);
+bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2);
 array<Texture2D, 3> obtenerTanque(Color color);
 void comunicacionClient(SOCKET clientSocket);
 bool colorCmpS(Color c1, Color c2);
@@ -235,15 +236,15 @@ void comunicacionClient(SOCKET clientSocket)
 
 void updateJuego()
 {
-    SetTargetFPS(60);
-    InitWindow(GetScreenWidth(), GetScreenHeight(), "Servidor");
-    SetWindowPosition(0, 10);
+    // SetTargetFPS(60);
+    // InitWindow(GetScreenWidth(), GetScreenHeight(), "Servidor");
+    // SetWindowPosition(0, 10);
 
-    InitAudioDevice();
+    // InitAudioDevice();
     initObstaculo();
-    initTexture();
-    initCamara();
-    initSonido();
+    // initTexture();
+    // initCamara();
+    // initSonido();
     initZona();
 
     auto disp_it = proyectiles.begin();
@@ -253,16 +254,16 @@ void updateJuego()
     float actual_pitch = 1.0f;
     char buffer1[10];
     char buffer2[10];
-    
-    while (!WindowShouldClose())
+
+    // while (!WindowShouldClose())
+    while (true)
     {
-        // while (true)
-        // std::this_thread::sleep_for(std::chrono::milliseconds(8));
-        BeginDrawing();
-        BeginMode2D(camara);
-        ClearBackground(BLACK);
-        drawSuelo();
-        drawBorde();
+        std::this_thread::sleep_for(std::chrono::milliseconds(12));
+        // BeginDrawing();
+        // BeginMode2D(camara);
+        // ClearBackground(BLACK);
+        // drawSuelo();
+        // drawBorde();
 
         mtx.lock();
         s = sonidos.begin();
@@ -284,6 +285,7 @@ void updateJuego()
         }
         mtx.unlock();
 
+        /*
         if (!IsSoundPlaying(mov))
         {
             PlaySound(mov);
@@ -310,7 +312,7 @@ void updateJuego()
         {
             obs.draw(box);
         }
-
+        */
         mtx.lock();
         it = tanques.begin();
         while (it != tanques.end())
@@ -318,12 +320,12 @@ void updateJuego()
             if (!(*it)->should_del)
             {
 
-                (*it)->draw(obtenerTanque((*it)->getColor()));
+                //(*it)->draw(obtenerTanque((*it)->getColor()));
 
-                if ((*it) != tanque_server)
-                {
-                    (*it)->drawVida();
-                }
+                // if ((*it) != tanque_server)
+                //{
+                //     (*it)->drawVida();
+                // }
 
                 (*it)->update(obstaculos);
 
@@ -331,7 +333,7 @@ void updateJuego()
                 {
                     Proyectil nuevo = (*it)->disparar();
                     proyectiles.push_front(nuevo);
-                    playEffect(disp, tanque_server->getCentro(), (*it)->getCentro());
+                    // playEffect(disp, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(DISP, clients_id, (*it)->getCentro()));
                 }
                 catch (const std::exception &e)
@@ -341,13 +343,13 @@ void updateJuego()
                 if ((*it)->colisionProyectiles(proyectiles))
                 {
                     (*it)->danio();
-                    playEffect(danio, tanque_server->getCentro(), (*it)->getCentro());
+                    // playEffect(danio, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(DANIO, clients_id, (*it)->getCentro()));
                 }
 
                 if ((*it)->escudo())
                 {
-                    playEffect(shield, tanque_server->getCentro(), (*it)->getCentro());
+                    // playEffect(shield, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(SHIELD, clients_id, (*it)->getCentro()));
                 }
 
@@ -364,7 +366,7 @@ void updateJuego()
         {
             if (!(*disp_it).should_del)
             {
-                (*disp_it).draw();
+                //(*disp_it).draw();
                 (*disp_it).update(obstaculos);
                 disp_it++;
             }
@@ -375,38 +377,39 @@ void updateJuego()
         }
         mtx.unlock();
 
-        EndMode2D();
+        // EndMode2D();
         for (auto &zona : zonas)
         {
             zona.update(tanques);
-            zona.getPrc(*tanque_server);
+            //    zona.getPrc(*tanque_server);
+            //}
+            // drawEscudoCd();
+            // strcpy(buffer2, "FPS: ");
+            // itoa(GetFPS(), buffer1, 10);
+            // strcat(buffer2, buffer1);
+            // DrawText(buffer2, 20, 30, 35, WHITE);
+            // drawVida();
+            /*
+            tanque_server->input();
+            if (camara.target.x < tanque_server->getCentro().x)
+            {
+                camara.target.x += 2;
+            }
+            if (camara.target.y < tanque_server->getCentro().y)
+            {
+                camara.target.y += 2;
+            }
+            if (camara.target.x > tanque_server->getCentro().x)
+            {
+                camara.target.x -= 2;
+            }
+            if (camara.target.y > tanque_server->getCentro().y)
+            {
+                camara.target.y -= 2;
+            }
+            drawMiniMapa();
+            EndDrawing();*/
         }
-        drawEscudoCd();
-        strcpy(buffer2, "FPS: ");
-        itoa(GetFPS(), buffer1, 10);
-        strcat(buffer2, buffer1);
-        DrawText(buffer2, 20, 30, 35, WHITE);
-        drawVida();
-
-        tanque_server->input();
-        if (camara.target.x < tanque_server->getCentro().x)
-        {
-            camara.target.x += 2;
-        }
-        if (camara.target.y < tanque_server->getCentro().y)
-        {
-            camara.target.y += 2;
-        }
-        if (camara.target.x > tanque_server->getCentro().x)
-        {
-            camara.target.x -= 2;
-        }
-        if (camara.target.y > tanque_server->getCentro().y)
-        {
-            camara.target.y -= 2;
-        }
-        drawMiniMapa();
-        EndDrawing();
     }
 }
 
@@ -473,18 +476,19 @@ void initTexture()
 
 void initObstaculo()
 {
+    srand(time(NULL));
     int x, y;
     for (y = BORDE_UP + CASILLA * 2; y < BORDE_DOWN - CASILLA * 4; y += CASILLA)
     {
         for (x = BORDE_LEFT + CASILLA * 2; x < BORDE_RIGHT - CASILLA * 4; x += CASILLA)
         {
-            if (GetRandomValue(1, 12) == 1)
+            if ((rand()%12) == 1)
             {
                 bool colision = false;
                 Obstaculo obs({(float)x, (float)y});
                 for (auto obstaculo : obstaculos)
                 {
-                    if (CheckCollisionRecs(obstaculo.getRec(), obs.getRec()))
+                    if (CheckCollisionRecsss(obstaculo.getRec(), obs.getRec()))
                     {
                         colision = true;
                     }
@@ -693,4 +697,15 @@ void initCamara()
     camara.offset.y = GetScreenHeight() / 2;
     camara.rotation = 0;
     camara.zoom = 0.8;
+}
+
+bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2) {
+    // Verificar colisión en el eje X
+    bool collisionX = rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x;
+
+    // Verificar colisión en el eje Y
+    bool collisionY = rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
+
+    // Si hay colisión en ambos ejes, los rectángulos se solapan
+    return collisionX && collisionY;
 }
