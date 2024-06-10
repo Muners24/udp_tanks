@@ -1,36 +1,71 @@
 #pragma once
-#include "C:\raylib\w64devkit\x86_64-w64-mingw32\include\raylib.h"
-#include <iostream>
-#include <cmath>
-#include <list>
+#include <ws2tcpip.h>
+#include <winsock2.h>
 #include <string.h>
+#include <raylib.h>
+#include <iostream>
+#include <sstream>
+#include <future>
+#include <string>
+#include <thread>
+#include <chrono>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <mutex>
+#include <queue>
+#include <list>
 #include <map>
 
-using std::map;
-using std::cout;
+using std::to_string;
+using std::vector;
+using std::string;
+using std::thread;
+using std::queue;
+using std::mutex;
+using std::array;
 using std::list;
+using std::cout;
+using std::map;
 
-#define RANCHO 1080.f
-#define RALTO 720.f
+#define RANCHO 1600.f
+#define RALTO 960.f
 
-#define CASILLA 40.f
-#define BORDE_LEFT float(CASILLA*3)
-#define BORDE_UP float(CASILLA)
-#define BORDE_RIGHT float(RANCHO - CASILLA*3)
-#define BORDE_DOWN float(RALTO - CASILLA*2)
+#define CASILLA 80.f
+#define BORDE_LEFT 0.0f 
+#define BORDE_UP 0.0f
+#define BORDE_RIGHT 50*CASILLA
+#define BORDE_DOWN 50*CASILLA
 
-
-#define TANKV 3.f
-
+#define COLUMNAS BORDE_RIGHT/CASILLA
+#define FILAS BORDE_DOWN/CASILLA
+#define TANKV 3.3f
 #define TANKH 60.f
 #define TANKW 80.f
+#define TANKDIAG sqrt((TANKH / 2.f) * (TANKH / 2.f) + (TANKW / 2.f) * (TANKW / 2.f))
+#define TANK_DANIO 24
 
-#define TANKDIAG sqrt((TANKH/2.f)*(TANKH/2.f) + (TANKW/2.f)*(TANKW/2.f))
+#define TANK_ESC_RAD 65
+#define TANK_ESC_CD 599
+#define TANK_ESC_DUR 90
 
-#define VEL_PYTL 4.f
-#define RAD_PYTL 8.f
-#define DELTA_DIR 2.2
+#define VEL_PYTL 4.8f
+#define RAD_PYTL 9.f
+#define DELTA_DIR 2.6
 #define VEL_ATK 60
 
-#define SPAWN1 {RANCHO / 2.0, RALTO / 2.0}
-#define SPAWN2 {BORDE_UP + 300.f, BORDE_LEFT + 300.f}
+#define ZONA_TTT 600
+#define ZONA_PRP 50
+
+#define MAX_SOUNDS 20
+
+typedef struct m_s
+{
+    int id;
+    Vector2 origen;
+    bool should_rep;
+} sound_msg;
+
+#define DISP 0
+#define DANIO 1
+#define SHIELD 2

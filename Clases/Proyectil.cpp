@@ -1,14 +1,14 @@
 #include "Proyectil.h"
 
-Proyectil::Proyectil(Vector2 fuente,float direccion,Color color)
+Proyectil::Proyectil(Vector2 fuente, float direccion, Color color)
 {
     Vector2 vect_uni;
     this->color = color;
     rebotes_cont = 0;
     radio = RAD_PYTL;
     should_del = false;
-    centro.x=fuente.x;
-    centro.y=fuente.y;
+    centro.x = fuente.x;
+    centro.y = fuente.y;
     vel.y = sin(direccion) * VEL_PYTL * -1;
     vel.x = cos(direccion) * VEL_PYTL;
 }
@@ -45,17 +45,54 @@ void Proyectil::colisionBorde()
     }
 }
 
+void Proyectil::colisionObs(list<Obstaculo> obstaculos)
+{
+    for (auto &obs : obstaculos)
+    {
+        Rectangle rec = obs.getRec();
+        if (CheckCollisionPointLine(centro, {rec.x, rec.y}, {rec.x + rec.width, rec.y}, 8))
+        {
+            vel.y *= -1;
+            centro.y -= VEL_PYTL;
+            rebotes_cont++;
+            continue;
+        }
+        if (CheckCollisionPointLine(centro, {rec.x, rec.y + rec.height}, {rec.x + rec.width, rec.y + rec.height}, 8))
+        {
+            vel.y *= -1;
+            centro.y += VEL_PYTL;
+            rebotes_cont++;
+            continue;
+        }
+        if (CheckCollisionPointLine(centro, {rec.x, rec.y}, {rec.x, rec.y + rec.height}, 8))
+        {
+            vel.x *= -1;
+            centro.x -= VEL_PYTL;
+            rebotes_cont++;
+            continue;
+        }
+        if (CheckCollisionPointLine(centro, {rec.x + rec.width, rec.y}, {rec.x + rec.width, rec.y + rec.height}, 8))
+        {
+            vel.x *= -1;
+            centro.x += VEL_PYTL;
+            rebotes_cont++;
+            continue;
+        }
+    }
+}
+
 void Proyectil::movimiento()
 {
     centro.x += vel.x;
     centro.y += vel.y;
 }
 
-void Proyectil::update()
+void Proyectil::update(list<Obstaculo> obstaculos)
 {
     movimiento();
     colisionBorde();
-    if(rebotes_cont > 4)
+    colisionObs(obstaculos);
+    if (rebotes_cont > 4)
     {
         should_del = true;
     }
@@ -63,12 +100,13 @@ void Proyectil::update()
 
 void Proyectil::draw()
 {
-    DrawCircle(centro.x,centro.y,radio,color);
+    DrawCircle(centro.x, centro.y, radio, BLACK);
+    DrawCircle(centro.x, centro.y, radio - 4, color);
 }
 
-bool Proyectil::operator==(const Proyectil& p) const
+bool Proyectil::operator==(const Proyectil &p) const
 {
-    if(this == &p)
+    if (this == &p)
     {
         return true;
     }
