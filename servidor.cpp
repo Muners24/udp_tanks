@@ -222,11 +222,6 @@ void comunicacionClient(SOCKET clientSocket)
             bytes = send(clientSocket, reinterpret_cast<const char *>(&zona), sizeof(Zona), 0);
             z++;
         }
-
-        if (bytes == -1)
-        {
-            conectado = false;
-        }
     }
 
     closesocket(clientSocket);
@@ -258,7 +253,7 @@ void updateJuego()
     // while (!WindowShouldClose())
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(12));
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
         // BeginDrawing();
         // BeginMode2D(camara);
         // ClearBackground(BLACK);
