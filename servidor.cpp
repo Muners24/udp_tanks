@@ -684,7 +684,7 @@ void initSonido()
     shield = LoadSound("audio\\shield.wav");
 
     mov = LoadSound("audio\\mov.wav");
-    SetSoundVolume(mov, 0.3f);
+    SetSoundVolume(mov, 0.15f);
 }
 
 void initCamara()

@@ -249,10 +249,9 @@ void comunicacion()
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
         ms = "MS:" + to_string(duracion.count());
+        cout << ms << "\n";
     }
 }
-
-
 
 void view()
 {
@@ -274,7 +273,7 @@ void view()
     Sound danio = LoadSound("audio\\danio.wav");
     Sound disp = LoadSound("audio\\exp.wav");
     Sound shield = LoadSound("audio\\shield.wav");
-    SetSoundVolume(mov, 0.3f);
+    SetSoundVolume(mov, 0.15f);
     float actual_pitch = 1.0f;
     losa = LoadTexture("img\\losa.png");
     borde = LoadTexture("img\\borde.png");
@@ -387,9 +386,11 @@ void view()
         }
 
         drawEscudoCd();
-        strcpy(buffer2, "FPS: ");
+        strcpy(buffer2, "FPS:");
         itoa(GetFPS(), buffer1, 10);
         strcat(buffer2, buffer1);
+        strcat(buffer2," "); 
+        strcat(buffer2,ms.c_str()); 
         DrawText(buffer2, 20, 30, 35, WHITE);
         drawVida();
 
@@ -669,7 +670,7 @@ Color getColor()
 void drawEscudoCd()
 {
 
-    int ancho = MeasureText("FPS: 60", 35);
+    int ancho = MeasureText("FPS:60", 35);
     Color transparent = client_tank.getColor();
     string timer = to_string((client_tank.getEscudoTimer() * 1 / 60));
     if (timer != "0")
@@ -684,7 +685,7 @@ void drawEscudoCd()
 
 void drawVida()
 {
-    int ancho = MeasureText("FPS: 60", 35);
+    int ancho = MeasureText("FPS:60", 35);
     float iniciox = 20 + ancho / 2 - 20;
     float inicioy = 180;
     Rectangle vida;
