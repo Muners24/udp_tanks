@@ -58,7 +58,7 @@ int bits[7];
 
 int main()
 {
-    Client cliente("127.0.0.1", 12345);
+    Client cliente("192.168.193.230", 12345);
 
     try
     {
