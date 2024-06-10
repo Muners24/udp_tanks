@@ -229,17 +229,9 @@ void Tanque::area()
     front.vertice[1] = vertices[0];
     front.vertice[2] = vertices[1];
 
-    left.vertice[0] = cent;
-    left.vertice[1] = vertices[2];
-    left.vertice[2] = vertices[0];
-
     back.vertice[0] = cent;
     back.vertice[1] = vertices[2];
     back.vertice[2] = vertices[3];
-
-    right.vertice[0] = cent;
-    right.vertice[1] = vertices[1];
-    right.vertice[2] = vertices[3];
 }
 
 /*

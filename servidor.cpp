@@ -26,6 +26,7 @@ void drawBorde();
 void drawSuelo();
 void drawVida();
 void initZona();
+bool reconectar(SOCKET &sock);
 
 queue<SoundMsg> cola_sonidos;
 list<Proyectil> proyectiles;
@@ -61,10 +62,10 @@ string ms;
 Camera2D camara;
 
 int current_client;
+Server servidor(SERVER_PORT);
 
 int main()
 {
-    Server servidor(SERVER_PORT);
 
     try
     {
@@ -222,6 +223,10 @@ void comunicacionClient(SOCKET clientSocket)
             bytes = send(clientSocket, reinterpret_cast<const char *>(&zona), sizeof(Zona), 0);
             z++;
         }
+        if (bytes < 0)
+        {
+            reconectar(clientSocket);
+        }
     }
 
     closesocket(clientSocket);
@@ -229,17 +234,41 @@ void comunicacionClient(SOCKET clientSocket)
     clients_id.remove(id);
 }
 
+bool reconectar(SOCKET &sock)
+{
+    // Cierra la conexión anterior
+    closesocket(sock);
+
+    // Intenta una nueva conexión
+    for (int i = 0; i < 3; i++)
+    { // Intenta reconectar hasta 3 veces
+        try
+        {
+            mtx.lock();
+            sock = servidor.conexionCliente();
+            mtx.unlock();
+            return true;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error al reconectar: " << e.what() << '\n';
+            std::this_thread::sleep_for(std::chrono::seconds(1)); // Espera antes de reintentar
+        }
+    }
+    return false;
+}
+
 void updateJuego()
 {
-    // SetTargetFPS(60);
-    // InitWindow(GetScreenWidth(), GetScreenHeight(), "Servidor");
-    // SetWindowPosition(0, 10);
+    SetTargetFPS(60);
+    InitWindow(GetScreenWidth(), GetScreenHeight(), "Servidor");
+    SetWindowPosition(0, 10);
 
-    // InitAudioDevice();
+    InitAudioDevice();
     initObstaculo();
-    // initTexture();
-    // initCamara();
-    // initSonido();
+    initTexture();
+    initCamara();
+    initSonido();
     initZona();
 
     auto disp_it = proyectiles.begin();
@@ -250,15 +279,15 @@ void updateJuego()
     char buffer1[10];
     char buffer2[10];
 
-    // while (!WindowShouldClose())
-    while (true)
+    while (!WindowShouldClose())
+    // while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
-        // BeginDrawing();
-        // BeginMode2D(camara);
-        // ClearBackground(BLACK);
-        // drawSuelo();
-        // drawBorde();
+        // std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        BeginDrawing();
+        BeginMode2D(camara);
+        ClearBackground(BLACK);
+        drawSuelo();
+        drawBorde();
 
         mtx.lock();
         s = sonidos.begin();
@@ -280,7 +309,6 @@ void updateJuego()
         }
         mtx.unlock();
 
-        /*
         if (!IsSoundPlaying(mov))
         {
             PlaySound(mov);
@@ -307,7 +335,7 @@ void updateJuego()
         {
             obs.draw(box);
         }
-        */
+
         mtx.lock();
         it = tanques.begin();
         while (it != tanques.end())
@@ -315,12 +343,12 @@ void updateJuego()
             if (!(*it)->should_del)
             {
 
-                //(*it)->draw(obtenerTanque((*it)->getColor()));
+                (*it)->draw(obtenerTanque((*it)->getColor()));
 
-                // if ((*it) != tanque_server)
-                //{
-                //     (*it)->drawVida();
-                // }
+                if ((*it) != tanque_server)
+                {
+                    (*it)->drawVida();
+                }
 
                 (*it)->update(obstaculos);
 
@@ -328,7 +356,7 @@ void updateJuego()
                 {
                     Proyectil nuevo = (*it)->disparar();
                     proyectiles.push_front(nuevo);
-                    // playEffect(disp, tanque_server->getCentro(), (*it)->getCentro());
+                    playEffect(disp, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(DISP, clients_id, (*it)->getCentro()));
                 }
                 catch (const std::exception &e)
@@ -338,13 +366,13 @@ void updateJuego()
                 if ((*it)->colisionProyectiles(proyectiles))
                 {
                     (*it)->danio();
-                    // playEffect(danio, tanque_server->getCentro(), (*it)->getCentro());
+                    playEffect(danio, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(DANIO, clients_id, (*it)->getCentro()));
                 }
 
                 if ((*it)->escudo())
                 {
-                    // playEffect(shield, tanque_server->getCentro(), (*it)->getCentro());
+                    playEffect(shield, tanque_server->getCentro(), (*it)->getCentro());
                     cola_sonidos.push(SoundMsg(SHIELD, clients_id, (*it)->getCentro()));
                 }
 
@@ -361,7 +389,7 @@ void updateJuego()
         {
             if (!(*disp_it).should_del)
             {
-                //(*disp_it).draw();
+                (*disp_it).draw();
                 (*disp_it).update(obstaculos);
                 disp_it++;
             }
@@ -372,39 +400,38 @@ void updateJuego()
         }
         mtx.unlock();
 
-        // EndMode2D();
+        EndMode2D();
         for (auto &zona : zonas)
         {
             zona.update(tanques);
-            //    zona.getPrc(*tanque_server);
-            //}
-            // drawEscudoCd();
-            // strcpy(buffer2, "FPS: ");
-            // itoa(GetFPS(), buffer1, 10);
-            // strcat(buffer2, buffer1);
-            // DrawText(buffer2, 20, 30, 35, WHITE);
-            // drawVida();
-            /*
-            tanque_server->input();
-            if (camara.target.x < tanque_server->getCentro().x)
-            {
-                camara.target.x += 2;
-            }
-            if (camara.target.y < tanque_server->getCentro().y)
-            {
-                camara.target.y += 2;
-            }
-            if (camara.target.x > tanque_server->getCentro().x)
-            {
-                camara.target.x -= 2;
-            }
-            if (camara.target.y > tanque_server->getCentro().y)
-            {
-                camara.target.y -= 2;
-            }
-            drawMiniMapa();
-            EndDrawing();*/
+            zona.getPrc(*tanque_server);
         }
+        drawEscudoCd();
+        strcpy(buffer2, "FPS: ");
+        itoa(GetFPS(), buffer1, 10);
+        strcat(buffer2, buffer1);
+        DrawText(buffer2, 20, 30, 35, WHITE);
+        drawVida();
+
+        tanque_server->input();
+        if (camara.target.x < tanque_server->getCentro().x)
+        {
+            camara.target.x += 2;
+        }
+        if (camara.target.y < tanque_server->getCentro().y)
+        {
+            camara.target.y += 2;
+        }
+        if (camara.target.x > tanque_server->getCentro().x)
+        {
+            camara.target.x -= 2;
+        }
+        if (camara.target.y > tanque_server->getCentro().y)
+        {
+            camara.target.y -= 2;
+        }
+        drawMiniMapa();
+        EndDrawing();
     }
 }
 
@@ -477,7 +504,7 @@ void initObstaculo()
     {
         for (x = BORDE_LEFT + CASILLA * 2; x < BORDE_RIGHT - CASILLA * 4; x += CASILLA)
         {
-            if ((rand()%12) == 1)
+            if ((rand() % 12) == 1)
             {
                 bool colision = false;
                 Obstaculo obs({(float)x, (float)y});
@@ -694,7 +721,8 @@ void initCamara()
     camara.zoom = 0.8;
 }
 
-bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2) {
+bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2)
+{
     // Verificar colisión en el eje X
     bool collisionX = rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x;
 

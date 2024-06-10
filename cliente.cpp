@@ -6,7 +6,7 @@
 #include "Clases/Zona.h"
 
 #pragma comment(lib, "Ws2_32.lib")
-
+bool reconectar(SOCKET &sock, const string &ip, int puerto);
 void playEffect(Sound s, Vector2 destino, Vector2 origen);
 array<Texture2D, 3> obtenerTanque(Color color);
 void drawBoton(char str[], int x, int y, bool select);
@@ -58,7 +58,7 @@ int bits[7];
 
 int main()
 {
-    Client cliente("20.163.29.146", 12345);
+    Client cliente("127.0.0.1", 12345);
 
     try
     {
@@ -150,6 +150,8 @@ void comunicacion()
 
     while (true)
     {
+        std::this_thread::sleep_for(std::chrono::milliseconds(7));
+
         auto inicio = std::chrono::high_resolution_clock::now();
         // sendinput
         inputT();
@@ -233,13 +235,39 @@ void comunicacion()
         for (i = 0; i < 25; i++)
         {
             bytes = recv(clientSocket, buffer, sizeof(Zona), 0);
-            memcpy(&temp_zona, buffer, sizeof(Zona));
-            zonas[i] = temp_zona;
+            if (bytes == sizeof(Zona))
+            {
+                memcpy(&temp_zona, buffer, sizeof(Zona));
+                zonas[i] = temp_zona;
+            }
         }
 
+        if (bytes == -1)
+        {
+            reconectar(clientSocket, "127.0.0.1", 12345);
+        }
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
         ms = "MS:" + to_string(duracion.count());
+    }
+}
+
+bool reconectar(SOCKET &sock, const string &ip, int puerto)
+{
+    // Cierra la conexión anterior
+    closesocket(sock);
+
+    // Intenta una nueva conexión
+    Client cliente(ip, puerto);
+    try
+    {
+        sock = cliente.configConexion();
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error al reconectar: " << e.what() << '\n';
+        return false;
     }
 }
 
@@ -349,8 +377,6 @@ void view()
             }
             mtx.unlock();
         }
-
-        
 
         mtx.lock();
         if (camara.target.x < client_tank.getCentro().x)
@@ -753,7 +779,7 @@ void drawMiniMapa()
             {
                 for (auto &t : tanques)
                 {
-                    if (colorCmpS(t.getColor(),client_tank.getColor()))
+                    if (colorCmpS(t.getColor(), client_tank.getColor()))
                     {
                         Vector2 t1, t2;
                         t1 = tanque.getCentro();
