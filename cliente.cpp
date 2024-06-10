@@ -249,7 +249,6 @@ void comunicacion()
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
         ms = "MS:" + to_string(duracion.count());
-        cout << ms << "\n";
     }
 }
 
@@ -267,7 +266,7 @@ void view()
     char buffer1[10];
     char buffer2[10];
     int i;
-    bool listo = false;
+    int listo = 0;
 
     Sound mov = LoadSound("audio\\mov.wav");
     Sound danio = LoadSound("audio\\danio.wav");
@@ -396,7 +395,7 @@ void view()
 
         drawMiniMapa();
         EndDrawing();
-        if (!listo)
+        if (listo < 180)
         {
             camara.target.x = client_tank.getCentro().x;
             camara.target.y = client_tank.getCentro().y;
@@ -404,8 +403,8 @@ void view()
             camara.offset.y = GetScreenHeight() / 2;
             camara.rotation = 0;
             camara.zoom = 0.8;
-            listo = true;
         }
+        listo ++;
     }
 
     CloseWindow();
