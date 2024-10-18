@@ -185,12 +185,12 @@ void listener()
         }
 
         // puede retirarse
-        bit[0] = SEND_SONIDOS;
-        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
-        if (bytes > 0)
-        {
-            recvSonidos();
-        }
+        //bit[0] = SEND_SONIDOS;
+        //bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        //if (bytes > 0)
+        //{
+        //    recvSonidos();
+        //}
 
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
