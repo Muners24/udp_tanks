@@ -1,11 +1,17 @@
 #include "..\t.h"
 
+typedef struct _soundmsg
+{
+    int id;
+    Vector2 origen;
+} _SoundMsg;
+
 class SoundMsg
 {
 private:
     Vector2 origen;
     int id;
-
+    int timer;
 public:
     map<int, bool> send;
 
@@ -18,4 +24,5 @@ public:
     ~SoundMsg() { send.clear(); };
     int getId() { return id; };
     bool readyToRemove();
+    _SoundMsg toStruct();
 };

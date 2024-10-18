@@ -3,6 +3,68 @@
 
 using std::function;
 
+_Tanque Tanque::toStruct()
+{
+    _Tanque t;
+    t.id = this->id;
+    t.escudo_duracion = escudo_duracion;
+    t.colision_obs = colision_obs;
+    t.last_pos = last_pos;
+    t.escudo_timer = escudo_timer;
+    t.pos = pos;
+    t.direccion = direccion;
+    t.front = front;
+    t.right = right;
+    t.left = left;
+    t.back = back;
+    t.vel = vel;
+    t.disp_timer = disp_timer;
+    t.spawn = spawn;
+    t.frame_izq = frame_izq;
+    t.frame_der = frame_der;
+    t.escudo_b = escudo_b;
+    t.dir_vel = dir_vel;
+    t.in_obs = in_obs;
+    t.color = color;
+    t.count = count;
+    t.vida = vida;
+    t.click_b = click_b;
+    t.clickr_b = clickr_b;
+    t.wasd = wasd;
+    t.should_del = should_del;
+    return t;
+}
+
+Tanque::Tanque(_Tanque &t)
+{
+    this->id = t.id;
+    this->escudo_duracion = t.escudo_duracion;
+    this->colision_obs = t.colision_obs;
+    this->last_pos = t.last_pos;
+    this->escudo_timer = t.escudo_timer;
+    this->pos = t.pos;
+    this->direccion = t.direccion;
+    this->front = t.front;
+    this->right = t.right;
+    this->left = t.left;
+    this->back = t.back;
+    this->vel = t.vel;
+    this->disp_timer = t.disp_timer;
+    this->spawn = t.spawn;
+    this->frame_izq = t.frame_izq;
+    this->frame_der = t.frame_der;
+    this->escudo_b = t.escudo_b;
+    this->dir_vel = t.dir_vel;
+    this->in_obs = t.in_obs;
+    this->color = t.color;
+    this->count = t.count;
+    this->vida = t.vida;
+    this->click_b = t.click_b;
+    this->clickr_b = t.clickr_b;
+    this->wasd = t.wasd;
+    this->should_del = t.should_del;
+}
+
 bool colorCmpT(Color c1, Color c2)
 {
     if (c1.a == c2.a)
@@ -21,8 +83,9 @@ bool colorCmpT(Color c1, Color c2)
     return false;
 }
 
-Tanque::Tanque(Color color)
+Tanque::Tanque(Color color, int id)
 {
+    this->id = id;
     this->color = color;
     setSpawn();
     pos.x = spawn.x;
@@ -35,18 +98,11 @@ Tanque::Tanque(Color color)
     pos.height = TANKH;
     should_del = false;
     disp_timer = 0;
-    ret_b = false;
-    acel_b = false;
+    wasd = {false, false, false, false};
+    count = {0, 0, 0, 0};
     click_b = false;
-    left_b = false;
-    right_b = false;
-    acel_c = 0;
-    ret_c = 0;
-    left_c = 0;
-    right_c = 0;
     frame_izq = 1;
     frame_der = 1;
-    area_total = 0;
     escudo_b = false;
     escudo_timer = TANK_ESC_CD;
     escudo_duracion = 0;
@@ -57,6 +113,7 @@ Tanque::Tanque(Color color)
 
 void Tanque::draw(array<Texture2D, 3> asset_tanque)
 {
+    Vector2 v_u_front = vectorUnitarioFront();
     Rectangle source = {0.0, 0.0, (float)asset_tanque[0].width, (float)asset_tanque[0].height / 2.f};
     Rectangle dest = {back.vertice[1].x, back.vertice[1].y, (float)asset_tanque[0].width, (float)asset_tanque[0].height / 2.f};
     DrawTextureEx(asset_tanque[frame_der], {back.vertice[1].x, back.vertice[1].y}, direccion * RAD2DEG * -1, 1, WHITE);
@@ -73,7 +130,6 @@ void Tanque::update(list<Obstaculo> obstaculos)
 {
     // input();
     calcularDireccion();
-    vectorUnitario();
     animacion();
     movimiento();
     area();
@@ -85,44 +141,44 @@ void Tanque::update(list<Obstaculo> obstaculos)
 
 void Tanque::animacion()
 {
-    if (acel_b)
+    if (wasd.up)
     {
-        if (acel_c++ >= 12)
+        if (count.up++ >= 12)
         {
             frame_izq = frame_izq != 2 ? frame_izq + 1 : 0;
             frame_der = frame_izq;
-            acel_c = 0;
+            count.up = 0;
         }
     }
     else
     {
-        if (ret_b)
+        if (wasd.down)
         {
-            if (ret_c++ >= 12)
+            if (count.down++ >= 12)
             {
                 frame_izq = frame_izq != 0 ? frame_izq - 1 : 2;
                 frame_der = frame_izq;
-                ret_c = 0;
+                count.down = 0;
             }
         }
         else
         {
-            if (left_b)
+            if (wasd.left)
             {
-                if (left_c++ >= 8)
+                if (count.left++ >= 8)
                 {
                     frame_izq = frame_izq != 0 ? frame_izq - 1 : 2;
                     frame_der = frame_der != 2 ? frame_der + 1 : 0;
-                    left_c = 0;
+                    count.left = 0;
                 }
             }
-            if (right_b)
+            if (wasd.right)
             {
-                if (right_c++ >= 8)
+                if (count.right++ >= 8)
                 {
                     frame_izq = frame_izq != 2 ? frame_izq + 1 : 0;
                     frame_der = frame_der != 0 ? frame_der - 1 : 2;
-                    right_c = 0;
+                    count.right = 0;
                 }
             }
         }
@@ -131,12 +187,12 @@ void Tanque::animacion()
 
 void Tanque::input()
 {
-    acel_b = IsKeyDown(KEY_W) ? true : false;
-    ret_b = IsKeyDown(KEY_S) ? true : false;
-    left_b = IsKeyDown(KEY_A) ? true : false;
-    right_b = IsKeyDown(KEY_D) ? true : false;
-    click_b = IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? true : false;
-    clickr_b = IsMouseButtonDown(MOUSE_BUTTON_RIGHT) ? true : false;
+    wasd.up = IsKeyDown(KEY_W) ? true : false;
+    wasd.down = IsKeyDown(KEY_S) ? true : false;
+    wasd.left = IsKeyDown(KEY_A) ? true : false;
+    wasd.right = IsKeyDown(KEY_D) ? true : false;
+    click_b = IsKeyDown(KEY_O) ? true : false;
+    clickr_b = IsKeyDown(KEY_P) ? true : false;
 }
 
 void Tanque::movimiento()
@@ -152,12 +208,12 @@ void Tanque::movimiento()
 
 void Tanque::calcularDireccion()
 {
-    if (left_b)
+    if (wasd.left)
     {
         direccion += DEG2RAD * DELTA_DIR;
         direccion = direccion > 2 * PI ? direccion - 2 * PI : direccion;
     }
-    if (right_b)
+    if (wasd.right)
     {
         direccion -= DEG2RAD * DELTA_DIR;
         direccion = direccion < 0 ? direccion + 2 * PI : direccion;
@@ -166,14 +222,15 @@ void Tanque::calcularDireccion()
 
 void Tanque::calcularVelocidad()
 {
-    if (acel_b)
+    Vector2 v_u_front = vectorUnitarioFront();
+    if (wasd.up)
     {
         vel.y = v_u_front.y * TANKV * -1;
         vel.x = v_u_front.x * TANKV;
     }
     else
     {
-        if (ret_b)
+        if (wasd.down)
         {
             vel.y = (v_u_front.y * TANKV) / 1.2;
             vel.x = (v_u_front.x * TANKV) / 1.2 * -1;
@@ -189,7 +246,8 @@ void Tanque::calcularVelocidad()
 void Tanque::area()
 {
     Vector2 vertices[4];
-
+    Vector2 v_u_front = vectorUnitarioFront();
+    Vector2 v_u_side = vectorUnitarioSide();
     vertices[0].x = pos.x + (v_u_front.x * (pos.width / 2.f) - v_u_side.x * (pos.height / 2.f));
     vertices[0].y = pos.y - (v_u_front.y * (pos.width / 2.f) - v_u_side.y * (pos.height / 2.f));
 
@@ -254,20 +312,27 @@ Vector2 Tanque::calcularVertices(function<float(float, float)> f)
 }
 */
 
-void Tanque::vectorUnitario()
+Vector2 Tanque::vectorUnitarioFront()
+{
+    return Vector2{
+        (float)cos(direccion),
+        (float)sin(direccion),
+    };
+}
+
+Vector2 Tanque::vectorUnitarioSide()
 {
     float rad = direccion + PI * 1.5;
-
-    v_u_front.y = sin(direccion);
-    v_u_front.x = cos(direccion);
-
-    v_u_side.y = sin(rad);
-    v_u_side.x = cos(rad);
+    return Vector2{
+        (float)cos(rad),
+        (float)sin(rad),
+    };
 }
 
 Vector2 Tanque::canon()
 {
     Vector2 vertice;
+    Vector2 v_u_front = vectorUnitarioFront();
     vertice.x = pos.x + (v_u_front.x * (pos.width / 2.f) + v_u_front.x * (pos.height / 2.f));
     vertice.y = pos.y - (v_u_front.y * (pos.width / 2.f) + v_u_front.y * (pos.height / 2.f));
     return vertice;
@@ -280,7 +345,7 @@ void Tanque::colisionBorde()
     {
         if (CheckCollisionPointTriangle(Vector2{float(x), float(BORDE_UP)}, front.vertice[0], front.vertice[1], front.vertice[2]))
         {
-            if (acel_b)
+            if (wasd.up)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -289,7 +354,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(x), float(BORDE_UP)}, back.vertice[0], back.vertice[1], back.vertice[2]))
         {
-            if (ret_b)
+            if (wasd.down)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -298,7 +363,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(x), float(BORDE_DOWN)}, front.vertice[0], front.vertice[1], front.vertice[2]))
         {
-            if (acel_b)
+            if (wasd.up)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -307,7 +372,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(x), float(BORDE_DOWN)}, back.vertice[0], back.vertice[1], back.vertice[2]))
         {
-            if (ret_b)
+            if (wasd.down)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -320,7 +385,7 @@ void Tanque::colisionBorde()
     {
         if (CheckCollisionPointTriangle(Vector2{float(BORDE_LEFT), float(y)}, front.vertice[0], front.vertice[1], front.vertice[2]))
         {
-            if (acel_b)
+            if (wasd.up)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -329,7 +394,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(BORDE_LEFT), float(y)}, back.vertice[0], back.vertice[1], back.vertice[2]))
         {
-            if (ret_b)
+            if (wasd.down)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -338,7 +403,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(BORDE_RIGHT), float(y)}, front.vertice[0], front.vertice[1], front.vertice[2]))
         {
-            if (acel_b)
+            if (wasd.up)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -347,7 +412,7 @@ void Tanque::colisionBorde()
         }
         if (CheckCollisionPointTriangle(Vector2{float(BORDE_RIGHT), float(y)}, back.vertice[0], back.vertice[1], back.vertice[2]))
         {
-            if (ret_b)
+            if (wasd.down)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -367,7 +432,7 @@ void Tanque::colisionObs(list<Obstaculo> obstaculos)
         rec = obs.getRec();
         if (CheckCollisionPointRec(front.vertice[1], rec) || CheckCollisionPointRec(front.vertice[2], rec))
         {
-            if (acel_b)
+            if (wasd.up)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -377,7 +442,7 @@ void Tanque::colisionObs(list<Obstaculo> obstaculos)
 
         if (CheckCollisionPointRec(back.vertice[1], rec) || CheckCollisionPointRec(back.vertice[2], rec))
         {
-            if (ret_b)
+            if (wasd.down)
             {
                 pos.x = last_pos.x;
                 pos.y = last_pos.y;
@@ -417,7 +482,7 @@ bool Tanque::colisionProyectiles(list<Proyectil> &proyectiles)
 {
     if (!escudo_b)
     {
-        area_total = areaTriangulo(back.vertice[1], back.vertice[2], front.vertice[1]) + areaTriangulo(front.vertice[1], front.vertice[2], back.vertice[2]);
+        float area_total = areaTriangulo(back.vertice[1], back.vertice[2], front.vertice[1]) + areaTriangulo(front.vertice[1], front.vertice[2], back.vertice[2]);
         float area1;
         float area2;
         float area3;
@@ -491,8 +556,6 @@ void Tanque::respawn()
         setSpawn();
     }
 }
-
-
 
 bool Tanque::escudo()
 {

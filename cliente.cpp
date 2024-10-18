@@ -1,4 +1,5 @@
 #include "t.h"
+#include "Clases/SoundMsg.h"
 #include "Clases/Proyectil.h"
 #include "Clases/Tanque.h"
 #include "Clases/Client.h"
@@ -6,24 +7,36 @@
 #include "Clases/Zona.h"
 
 #pragma comment(lib, "Ws2_32.lib")
-bool reconectar(SOCKET &sock, const string &ip, int puerto);
 void playEffect(Sound s, Vector2 destino, Vector2 origen);
 array<Texture2D, 3> obtenerTanque(Color color);
 void drawBoton(char str[], int x, int y, bool select);
 bool colorCmpS(Color c1, Color c2);
-void initTextreTanque();
-void drawMiniMapa();
-void drawEscudoCd();
-void comunicacion();
+void initCamara(Camera2D &camara);
+void initTexture();
+void initSonido();
+void drawMiniMapa(Tanque temp);
+void drawEscudoCd(Tanque temp);
+void listener();
 void drawSuelo();
 void drawBorde();
-Color getColor();
+void initColors();
 void initZona();
-void drawVida();
+void initInput();
+void drawVida(Tanque temp);
 void inputT();
 void input();
 void view();
 void menu();
+void centerCamera(Camera2D &camara, Vector2 point);
+
+void recvProyectiles();
+void recvObstaculos();
+void recvTanques();
+void recvSonidos();
+void recvZonas();
+void recvId();
+void sendColor();
+void sendInput();
 
 int sel_color;
 bool on_menu;
@@ -31,7 +44,7 @@ int op;
 
 list<Proyectil> proyectiles;
 list<Obstaculo> obstaculos;
-queue<sound_msg> sonidos;
+queue<_SoundMsg> sonidos;
 list<Tanque> tanques;
 vector<Zona> zonas;
 mutex mtx;
@@ -47,22 +60,27 @@ array<Texture2D, 3> t_yellow;
 Texture2D losa;
 Texture2D borde;
 Texture2D box;
-
-SOCKET clientSocket;
-Tanque client_tank;
+Sound mov;
+Sound danio;
+Sound disp;
+Sound shield;
+vector<Color> colors;
 string ms;
 
 Camera2D camara;
 
 int bits[7];
 
+Client client;
+
 int main()
 {
-    Client cliente("192.168.193.104", 12345);
+    client = Client(IP, PUERTO);
 
+    initInput();
     try
     {
-        clientSocket = cliente.configConexion();
+        client.configConexion();
     }
     catch (const std::exception &e)
     {
@@ -70,182 +88,110 @@ int main()
         return 1;
     }
 
-    vector<thread> hilos;
     on_menu = true;
-    try
-    {
-        hilos.emplace_back(comunicacion);
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << e.what() << '\n';
-        return 1;
-    }
+    thread threadJuego;
+    threadJuego = thread(listener);
 
-    try
-    {
-        hilos.emplace_back(view);
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-
-    for (auto &hilo : hilos)
-    {
-        if (hilo.joinable())
-        {
-            hilo.join();
-        }
-    }
-
-    cliente.close();
+    view();
+    client.close();
     return 0;
 }
 
-void comunicacion()
+void listener()
 {
-    Tanque temp_tanque;
-    Proyectil temp_proyectil;
-    Obstaculo temp_obstaculo;
-    Zona temp_zona;
-    char buffer[sizeof(Tanque)];
-    string input_buffer;
-
-    int bytes;
-    int i;
-    list<Proyectil> proyectiles_temp;
-    list<Tanque> tanques_temp;
-    // map<int, Proyectil> proyectiles_temp;
-    // map<int, Tanque> tanques_temp;
-    int cont_proyectiles = 0;
-    int cont_tanques = 0;
-    int cont_sounds = 0;
-    int cont_obs = 0;
+    // Configurar el socket en modo no bloqueante
+    u_long mode = 0; // 0 para bloqueante
+    ioctlsocket(client.getSocket(), FIONBIO, &mode);
 
     while (on_menu)
     {
     }
 
-    Color c = getColor();
-    bytes = send(clientSocket, reinterpret_cast<const char *>(&c), sizeof(Color), 0);
+    char buffer[5000];
+    char bit[1];
+    string input_buffer;
 
-    bytes = recv(clientSocket, buffer, 5, 0);
-    if (bytes == 5)
+    sockaddr_in to = client.getServerAddr();
+
+    Color c = colors[sel_color];
+    int bytes;
+
+    // recibe id
+    bit[0] = SEND_ID;
+    while (client.id == -1)
     {
-        cont_obs = atoi(buffer);
-        mtx.lock();
-        obstaculos.clear();
-        for (i = 0; i < cont_obs; i++)
+        bytes = -1;
+        while (bytes < 0)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Obstaculo), 0);
-            if (bytes == sizeof(Obstaculo))
-            {
-                memcpy(&temp_obstaculo, buffer, sizeof(Obstaculo));
-                obstaculos.push_back(temp_obstaculo);
-            }
+            bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
         }
-        mtx.unlock();
+        recvId();
     }
+    printf("\nrecibe id\n");
+    // no se confirma que se haya asignado el color ojo
+    // asigna tanque segun color
+    bit[0] = SEND_COLOR;
+    bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+    }
+    sendColor();
+    printf("\nrecibe color\n");
+
+    // recibe obstaculos
+    while (obstaculos.empty())
+    {
+        bit[0] = SEND_OBSTACULOS;
+        bytes = -1;
+        while (bytes < 0)
+        {
+            bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+        recvObstaculos();
+    }
+    printf("\nrecibe obstaculos\n");
 
     while (true)
     {
-        //std::this_thread::sleep_for(std::chrono::milliseconds(7));
-
+        // std::this_thread::sleep_for(std::chrono::milliseconds(7));
         auto inicio = std::chrono::high_resolution_clock::now();
-        // sendinput
-        inputT();
-        input_buffer = to_string(bits[0]) + to_string(bits[1]) + to_string(bits[2]) + to_string(bits[3]) + to_string(bits[4]) + to_string(bits[5]);
-        bytes = send(clientSocket, input_buffer.c_str(), 7, 0);
-
-        // recvSound
-        bytes = recv(clientSocket, buffer, 4, 0);
-        if (bytes == 4)
+        bit[0] = SEND_INPUT;
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        if (bytes > 0)
         {
-            cont_sounds = atoi(buffer);
-            for (i = 0; i < cont_sounds; i++)
-            {
-                sound_msg temp_sonido;
-                bytes = recv(clientSocket, buffer, sizeof(sound_msg), 0);
-                if (bytes == sizeof(sound_msg))
-                {
-                    memcpy(&temp_sonido, buffer, sizeof(sound_msg));
-                    if (temp_sonido.should_rep)
-                        sonidos.push(temp_sonido);
-                }
-            }
+            sendInput();
         }
 
-        // recvTanques
-        bytes = recv(clientSocket, buffer, 10, 0);
-        if (bytes == 10)
+        bit[0] = SEND_TANQUES;
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        if (bytes > 0)
         {
-            cont_tanques = atoi(buffer);
-            tanques_temp.clear();
-            for (i = 0; i < cont_tanques; i++)
-            {
-                if (i == 0)
-                {
-                    bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-                    if (bytes == sizeof(Tanque))
-                    {
-                        memcpy(&client_tank, buffer, sizeof(Tanque));
-                        tanques_temp.push_back(client_tank);
-                    }
-                }
-                else
-                {
-                    bytes = recv(clientSocket, buffer, sizeof(Tanque), 0);
-                    if (bytes == sizeof(Tanque))
-                    {
-                        memcpy(&temp_tanque, buffer, sizeof(Tanque));
-                        tanques_temp.push_back(temp_tanque);
-                    }
-                }
-            }
-
-            // mtx.lock();
-            tanques = std::move(tanques_temp);
-            // mtx.unlock();
+            recvTanques();
         }
 
-        // recvProyectiles
-        bytes = recv(clientSocket, buffer, 32, 0);
-        if (bytes == 32)
+        bit[0] = SEND_ZONAS;
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        if (bytes > 0)
         {
-            cont_proyectiles = atoi(buffer);
-            proyectiles_temp.clear();
-            for (i = 0; i < cont_proyectiles; i++)
-            {
-
-                bytes = recv(clientSocket, buffer, sizeof(Proyectil), 0);
-                if (bytes == sizeof(Proyectil))
-                {
-                    memcpy(&temp_proyectil, buffer, sizeof(Proyectil));
-                    proyectiles_temp.push_back(temp_proyectil);
-                }
-            }
-
-            // mtx.lock();
-            proyectiles = std::move(proyectiles_temp);
-            // mtx.unlock();
+            recvZonas();
         }
 
-        // recvZonas
-        for (i = 0; i < 25; i++)
+        bit[0] = SEND_PROYECTILES;
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        if (bytes > 0)
         {
-            bytes = recv(clientSocket, buffer, sizeof(Zona), 0);
-            if (bytes == sizeof(Zona))
-            {
-                memcpy(&temp_zona, buffer, sizeof(Zona));
-                zonas[i] = temp_zona;
-            }
+            recvProyectiles();
         }
 
-        if (bytes == -1)
+        // puede retirarse
+        bit[0] = SEND_SONIDOS;
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+        if (bytes > 0)
         {
-            exit(0);
+            recvSonidos();
         }
+
         auto fin = std::chrono::high_resolution_clock::now();
         auto duracion = std::chrono::duration_cast<std::chrono::milliseconds>(fin - inicio);
         ms = "MS:" + to_string(duracion.count());
@@ -258,36 +204,40 @@ void view()
     InitWindow(GetScreenWidth(), GetScreenHeight(), "TANKS");
     SetWindowPosition(0, 10);
 
-    InitAudioDevice();
-    initZona();
-    initTextreTanque();
-
-    string ping;
-    char buffer1[10];
-    char buffer2[10];
-    int i;
-    int listo = 0;
-
-    Sound mov = LoadSound("audio\\mov.wav");
-    Sound danio = LoadSound("audio\\danio.wav");
-    Sound disp = LoadSound("audio\\exp.wav");
-    Sound shield = LoadSound("audio\\shield.wav");
-    SetSoundVolume(mov, 0.15f);
-    float actual_pitch = 1.0f;
-    losa = LoadTexture("img\\losa.png");
-    borde = LoadTexture("img\\borde.png");
-    box = LoadTexture("img\\box.png");
+    initColors();
     menu();
 
-    camara.target.x = client_tank.getCentro().x;
-    camara.target.y = client_tank.getCentro().y;
-    camara.offset.x = GetScreenWidth() / 2;
-    camara.offset.y = GetScreenHeight() / 2;
-    camara.rotation = 0;
-    camara.zoom = 0.8;
+    while (client.id == -1)
+    {
+    }
+    while (obstaculos.size() == 0)
+    {
+    }
+
+    Camera2D camara;
+
+    float actual_pitch = 1.0f;
+    char buffer1[10];
+    char buffer2[10];
+    int listo = 0;
+    string ping;
+    Tanque temp = Tanque(colors[sel_color], -1);
+
+    initCamara(camara);
+    initTexture();
+    InitAudioDevice();
+    initZona();
+    initSonido();
 
     while (!WindowShouldClose())
     {
+        for (auto tanque : tanques)
+        {
+            if (tanque.id == client.id)
+            {
+                temp = tanque;
+            }
+        }
         BeginDrawing();
         BeginMode2D(camara);
         ClearBackground(DARKBLUE);
@@ -325,88 +275,87 @@ void view()
             mtx.lock();
             while (!sonidos.empty())
             {
-                sound_msg s = sonidos.front();
+                _SoundMsg s = sonidos.front();
                 sonidos.pop();
 
                 switch (s.id)
                 {
                 case DISP:
-                    playEffect(disp, client_tank.getCentro(), s.origen);
+                    playEffect(disp, temp.getCentro(), s.origen);
                     break;
                 case DANIO:
-                    playEffect(danio, client_tank.getCentro(), s.origen);
+                    playEffect(danio, temp.getCentro(), s.origen);
                     break;
                 case SHIELD:
-                    playEffect(shield, client_tank.getCentro(), s.origen);
+                    playEffect(shield, temp.getCentro(), s.origen);
                     break;
                 }
             }
 
-            i = 0;
-            for (auto &tanque : tanques)
+            for (auto tanque : tanques)
             {
                 tanque.draw(obtenerTanque(tanque.getColor()));
-                if (i != 0)
+                if (tanque.id != client.id)
                 {
                     tanque.drawVida();
                 }
-                i++;
             }
-            for (auto &disp : proyectiles)
+
+            for (auto disp : proyectiles)
             {
                 disp.draw();
             }
             mtx.unlock();
         }
 
-        mtx.lock();
-        if (camara.target.x < client_tank.getCentro().x)
-        {
-            camara.target.x += 2;
-        }
-        if (camara.target.y < client_tank.getCentro().y)
-        {
-            camara.target.y += 2;
-        }
-        if (camara.target.x > client_tank.getCentro().x)
-        {
-            camara.target.x -= 2;
-        }
-        if (camara.target.y > client_tank.getCentro().y)
-        {
-            camara.target.y -= 2;
-        }
-        mtx.unlock();
-
         EndMode2D();
-        for (auto &zona : zonas)
-        {
-            zona.getPrc(client_tank);
-        }
 
-        drawEscudoCd();
+        for (auto zona : zonas)
+        {
+            zona.getPrc(temp);
+        }
+        centerCamera(camara, temp.getCentro());
+
+        drawEscudoCd(temp);
+        drawVida(temp);
+        drawMiniMapa(temp);
+
         strcpy(buffer2, "FPS:");
         itoa(GetFPS(), buffer1, 10);
         strcat(buffer2, buffer1);
-        strcat(buffer2," "); 
-        strcat(buffer2,ms.c_str()); 
+        strcat(buffer2, " ");
+        strcat(buffer2, ms.c_str());
         DrawText(buffer2, 20, 30, 35, WHITE);
-        drawVida();
 
-        drawMiniMapa();
         EndDrawing();
+
         if (listo < 180)
         {
-            camara.target.x = client_tank.getCentro().x;
-            camara.target.y = client_tank.getCentro().y;
+            camara.target.x = temp.getCentro().x;
+            camara.target.y = temp.getCentro().y;
             camara.offset.x = GetScreenWidth() / 2;
             camara.offset.y = GetScreenHeight() / 2;
             camara.rotation = 0;
             camara.zoom = 0.8;
         }
-        listo ++;
+        listo++;
     }
 
+    char bit[1];
+    sockaddr_in to = client.getServerAddr();
+    bit[0] = SEND_DISCONNECT;
+    int bytes = -1;
+    while (bytes < 0 || bytes != sizeof(bit))
+    {
+        bytes = sendto(client.getSocket(), bit, sizeof(bit), 0, (struct sockaddr *)&to, sizeof(to));
+    }
+    int id = client.id;
+    bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(int))
+    {
+
+        bytes = sendto(client.getSocket(), reinterpret_cast<char *>(&id), sizeof(int), 0, (struct sockaddr *)&to, sizeof(to));
+    }
     CloseWindow();
 }
 
@@ -416,8 +365,9 @@ void inputT()
     bits[1] = IsKeyDown(KEY_W) ? 1 : 0;
     bits[2] = IsKeyDown(KEY_S) ? 1 : 0;
     bits[3] = IsKeyDown(KEY_D) ? 1 : 0;
-    bits[4] = IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? 1 : 0;
-    bits[5] = IsMouseButtonDown(MOUSE_BUTTON_RIGHT) ? 1 : 0;
+    bits[4] = IsKeyDown(KEY_O) ? 1 : 0;
+    bits[5] = IsKeyDown(KEY_P) ? 1 : 0;
+    bits[6] = client.id;
 }
 
 bool colorCmpS(Color c1, Color c2)
@@ -459,7 +409,17 @@ array<Texture2D, 3> obtenerTanque(Color color)
     return t_red;
 }
 
-void initTextreTanque()
+void initCamara(Camera2D &camara)
+{
+    camara.target.x = 800;
+    camara.target.y = 800;
+    camara.offset.x = GetScreenWidth() / 2;
+    camara.offset.y = GetScreenHeight() / 2;
+    camara.rotation = 0;
+    camara.zoom = 0.8;
+}
+
+void initTexture()
 {
     t_red[0] = LoadTexture("img\\T_RED0.png");
     t_red[1] = LoadTexture("img\\T_RED1.png");
@@ -496,6 +456,32 @@ void initTextreTanque()
     t_cian[0] = LoadTexture("img\\T_CIAN0.png");
     t_cian[1] = LoadTexture("img\\T_CIAN1.png");
     t_cian[2] = LoadTexture("img\\T_CIAN2.png");
+
+    losa = LoadTexture("img\\losa.png");
+    borde = LoadTexture("img\\borde.png");
+    box = LoadTexture("img\\box.png");
+}
+
+void initSonido()
+{
+    danio = LoadSound("audio\\danio.wav");
+    disp = LoadSound("audio\\exp.wav");
+    shield = LoadSound("audio\\shield.wav");
+
+    mov = LoadSound("audio\\mov.wav");
+    SetSoundVolume(mov, 0.15f);
+}
+
+void initColors()
+{
+    colors.push_back(RED);
+    colors.push_back(YELLOW);
+    colors.push_back(BLUE);
+    colors.push_back(PURPLE);
+    colors.push_back(GREEN);
+    colors.push_back(SKYBLUE);
+    colors.push_back(BLACK);
+    colors.push_back(DARKGRAY);
 }
 
 void drawSuelo()
@@ -529,13 +515,11 @@ void drawBorde()
 void menu()
 {
     Image img_fondo = LoadImage("img\\menu.png");
-    // Obtiene la resolución de la pantalla
     int width = GetScreenWidth();
-    // Redimensiona la imagen a las nuevas dimensiones calculadas
     ImageResize(&img_fondo, GetScreenWidth(), GetScreenHeight());
 
     Texture2D fondo = LoadTextureFromImage(img_fondo);
-    Texture2D mouse = LoadTexture("img\\mouse.png");
+    Texture2D mouse = LoadTexture("img\\op.png");
     Texture2D wasd = LoadTexture("img\\wasd.png");
     op = 0;
     sel_color = 0;
@@ -555,27 +539,27 @@ void menu()
         actual += 100;
         if (op == 1)
         {
-            drawBoton((char *)" <- Color ->", width / 2.0, actual, true);
-            actual += 100;
-            DrawRectangle(width / 2.0 - CASILLA - 4, actual - 4, CASILLA * 2 + 8, CASILLA * 2 + 8, BLACK);
-            DrawRectangle(width / 2.0 - CASILLA, actual, CASILLA * 2, CASILLA * 2, getColor());
-            actual += 100;
-        }
-        else
-            drawBoton((char *)"Color", width / 2, actual, false);
-
-        actual += 100;
-        if (op == 2)
-        {
             drawBoton((char *)"Controles", width / 2.0, actual, true);
             actual += 100;
             DrawRectangle(width / 2.0 - CASILLA * 3, actual, CASILLA * 6, CASILLA * 2.5, Color{220, 220, 220, 255});
             DrawTexture(wasd, width / 2.0 - CASILLA * 3, actual - 50, Color{220, 220, 220, 255});
-            DrawTexture(mouse, width / 2.0 + CASILLA, actual + 40, Color{220, 220, 220, 255});
+            DrawTexture(mouse, width / 2.0 + CASILLA, actual + 70, Color{220, 220, 220, 255});
             actual += 150;
         }
         else
             drawBoton((char *)"Controles", width / 2.0, actual, false);
+        actual += 100;
+
+        if (op == 2)
+        {
+            drawBoton((char *)" <- Color ->", width / 2.0, actual, true);
+            actual += 100;
+            DrawRectangle(width / 2.0 - CASILLA - 4, actual - 4, CASILLA * 2 + 8, CASILLA * 2 + 8, BLACK);
+            DrawRectangle(width / 2.0 - CASILLA, actual, CASILLA * 2, CASILLA * 2, colors[sel_color]);
+            actual += 100;
+        }
+        else
+            drawBoton((char *)"Color", width / 2, actual, false);
 
         actual += 100;
         if (op == 3)
@@ -617,15 +601,15 @@ void input()
         op = op < 3 ? op + 1 : 3;
     }
 
-    if (op == 1)
+    if (op == 2)
     {
         if (IsKeyPressed(KEY_A))
         {
-            sel_color = sel_color > 1 ? sel_color - 1 : 7;
+            sel_color = sel_color > 0 ? sel_color - 1 : colors.size() - 1;
         }
         if (IsKeyPressed(KEY_D))
         {
-            sel_color = sel_color < 7 ? sel_color + 1 : 0;
+            sel_color = sel_color < colors.size() - 1 ? sel_color + 1 : 0;
         }
     }
 
@@ -640,41 +624,25 @@ void input()
     {
         if (IsKeyPressed(KEY_ENTER))
         {
+            CloseWindow();
+            client.close();
             exit(0);
         }
     }
 }
 
-Color getColor()
+void drawEscudoCd(Tanque temp)
 {
-    if (sel_color == 0)
-        return RED;
-    if (sel_color == 1)
-        return YELLOW;
-    if (sel_color == 2)
-        return BLUE;
-    if (sel_color == 3)
-        return PURPLE;
-    if (sel_color == 4)
-        return GREEN;
-    if (sel_color == 5)
-        return SKYBLUE;
-    if (sel_color == 6)
-        return BLACK;
-    if (sel_color == 7)
-        return DARKGRAY;
-    return BLACK;
-}
-
-void drawEscudoCd()
-{
-
     int ancho = MeasureText("FPS:60", 35);
-    Color transparent = client_tank.getColor();
-    string timer = to_string((client_tank.getEscudoTimer() * 1 / 60));
-    if (timer != "0")
+    Color transparent = temp.getColor();
+    string timer = to_string((int)(temp.getEscudoTimer() / (float)60) + 1);
+    if (temp.getEscudoTimer() != 0)
     {
         transparent = Color{25, 25, 25, 90};
+    }
+    else
+    {
+        timer = '0';
     }
     transparent.a = 90;
 
@@ -682,7 +650,7 @@ void drawEscudoCd()
     DrawText(timer.c_str(), 20 + ancho / 2 - MeasureText(timer.c_str(), 40) / 2.0, 102, 40, WHITE);
 }
 
-void drawVida()
+void drawVida(Tanque temp)
 {
     int ancho = MeasureText("FPS:60", 35);
     float iniciox = 20 + ancho / 2 - 20;
@@ -692,7 +660,7 @@ void drawVida()
     vida.y = inicioy;
     vida.height = 300;
     vida.width = 40;
-    DrawRectangle(vida.x, vida.y, vida.width, vida.height * client_tank.getVida() / 100, Color{6, 174, 5, 200});
+    DrawRectangle(vida.x, vida.y, vida.width, vida.height * temp.getVida() / 100, Color{6, 174, 5, 200});
     DrawRectangle(iniciox, inicioy, 2, 300, BLACK);
     DrawRectangle(iniciox, inicioy, 40, 2, BLACK);
     DrawRectangle(iniciox, inicioy + 298, 40, 2, BLACK);
@@ -714,7 +682,7 @@ void playEffect(Sound s, Vector2 destino, Vector2 origen)
     PlaySound(ss);
 }
 
-void drawMiniMapa()
+void drawMiniMapa(Tanque temp)
 {
     static bool open = true;
     float ancho = (float)GetScreenWidth();
@@ -752,7 +720,7 @@ void drawMiniMapa()
         for (auto &tanque : tanques)
         {
             c = tanque.getColor();
-            if (colorCmpS(c, client_tank.getColor()))
+            if (colorCmpS(c, temp.getColor()))
             {
                 rec = tanque.getRec();
                 c.a = 220;
@@ -762,7 +730,7 @@ void drawMiniMapa()
             {
                 for (auto &t : tanques)
                 {
-                    if (colorCmpS(t.getColor(), client_tank.getColor()))
+                    if (colorCmpS(t.getColor(), temp.getColor()))
                     {
                         Vector2 t1, t2;
                         t1 = tanque.getCentro();
@@ -787,5 +755,248 @@ void initZona()
     for (int i = 0; i < 25; i++)
     {
         zonas.push_back(Zona());
+    }
+}
+
+void recvProyectiles()
+{
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+    char buffer[5000];
+
+    int bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes > 0)
+        {
+            if (bytes != (int)sizeof(int))
+            {
+                int cantidad = bytes / sizeof(_Proyectil);
+                if (bytes == cantidad * sizeof(_Proyectil))
+                {
+                    _Proyectil p[cantidad];
+                    memcpy(&p, buffer, bytes);
+                    proyectiles.clear();
+                    for (int i = 0; i < cantidad; i++)
+                    {
+                        Proyectil temp(p[i]);
+                        proyectiles.push_back(temp);
+                    }
+                }
+            }
+            else
+            {
+                mtx.lock();
+                proyectiles.clear();
+                mtx.unlock();
+            }
+        }
+    }
+}
+
+void recvObstaculos()
+{
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+    char buffer[5000];
+    int bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+    }
+
+    if (bytes > 0)
+    {
+        int cantidad = bytes / sizeof(_Obstaculo);
+        if (bytes == cantidad * (int)sizeof(_Obstaculo))
+        {
+            _Obstaculo o[cantidad];
+            memcpy(&o, buffer, bytes);
+            obstaculos.clear();
+            for (int i = 0; i < cantidad; i++)
+            {
+                Obstaculo temp(o[i]);
+                obstaculos.push_back(temp);
+            }
+        }
+    }
+}
+
+void recvTanques()
+{
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+    char buffer[5000];
+
+    int bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes > 0)
+        {
+            int cantidad = bytes / sizeof(_Tanque);
+            if (bytes == cantidad * sizeof(_Tanque))
+            {
+                _Tanque t[cantidad];
+                memcpy(&t, buffer, bytes);
+                tanques.clear();
+                for (int i = 0; i < cantidad; i++)
+                {
+                    Tanque temp(t[i]);
+                    tanques.push_back(temp);
+                }
+            }
+        }
+    }
+}
+
+void recvSonidos()
+{
+    sockaddr_in to = client.getServerAddr();
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+    char buffer[5000];
+    int id = client.id;
+
+    int bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(int))
+    {
+        bytes = sendto(client.getSocket(), reinterpret_cast<char *>(&id), sizeof(int), 0, (const sockaddr *)&to, sizeof(to));
+    }
+
+    bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes > 0)
+        {
+            int cantidad = bytes / sizeof(_SoundMsg);
+            if (bytes == cantidad * sizeof(_SoundMsg))
+            {
+                _SoundMsg s[cantidad];
+                memcpy(&s, buffer, bytes);
+                for (int i = 0; i < cantidad; i++)
+                {
+                    sonidos.push(s[i]);
+                }
+            }
+        }
+    }
+}
+
+void recvZonas()
+{
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+    char buffer[3000];
+
+    int bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes > 0)
+        {
+            int cantidad = bytes / sizeof(_Zona);
+            if (bytes == cantidad * sizeof(_Zona))
+            {
+                _Zona z[cantidad];
+                memcpy(&z, buffer, bytes);
+                zonas.clear();
+                for (int i = 0; i < cantidad; i++)
+                {
+                    Zona temp(z[i]);
+                    zonas.push_back(temp);
+                }
+            }
+        }
+    }
+}
+
+void recvId()
+{
+    int bytes;
+    char buffer[5000];
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+
+    bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(client.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes == (int)sizeof(int))
+        {
+            memcpy(&client.id, buffer, sizeof(int));
+        }
+    }
+
+    bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = sendto(client.getSocket(), reinterpret_cast<char *>(&client.id), sizeof(int), 0, (struct sockaddr *)&from, sizeof(from));
+    }
+}
+
+void sendColor()
+{
+    sockaddr_in to = client.getServerAddr();
+    sockaddr_in from;
+    socklen_t fromlen;
+    _PeticionTanque peticiontanque;
+    peticiontanque.color = colors[sel_color];
+    peticiontanque.id = client.id;
+
+    char buffer[500];
+    int bytes;
+    bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(_PeticionTanque))
+    {
+        bytes = sendto(client.getSocket(), reinterpret_cast<char *>(&peticiontanque), sizeof(_PeticionTanque), 0, (struct sockaddr *)&to, sizeof(to));
+    }
+}
+
+void sendInput()
+{
+    inputT();
+    sockaddr_in to = client.getServerAddr();
+    int bytes = -1;
+    while (bytes < 0 || bytes != sizeof(bits))
+    {
+        bytes = sendto(client.getSocket(), (char *)bits, sizeof(bits), 0, (struct sockaddr *)&to, sizeof(to));
+    }
+}
+
+void initInput()
+{
+    int i;
+    for (i = 0; i < 6; i++)
+    {
+        bits[i] = 0;
+    }
+    bits[i] = client.id;
+}
+
+void centerCamera(Camera2D &camara, Vector2 point)
+{
+    if (camara.target.x < point.x)
+    {
+        camara.target.x += 2;
+    }
+    if (camara.target.y < point.y)
+    {
+        camara.target.y += 2;
+    }
+    if (camara.target.x > point.x)
+    {
+        camara.target.x -= 2;
+    }
+    if (camara.target.y > point.y)
+    {
+        camara.target.y -= 2;
+    }
+
+    if (IsKeyPressed(KEY_SPACE))
+    {
+        camara.target = point;
     }
 }

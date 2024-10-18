@@ -1,8 +1,29 @@
 #include "Proyectil.h"
 
+_Proyectil Proyectil::toStruct()
+{
+    _Proyectil p;
+    p.rebotes_cont = this->rebotes_cont;
+    p.centro = this->centro;
+    p.vel = this->vel;
+    p.color = this->color;
+    p.radio = this->radio;
+    p.should_del = this->should_del;
+    return p;
+}
+
+Proyectil::Proyectil(_Proyectil p)
+{
+    this->rebotes_cont = p.rebotes_cont;
+    this->centro = p.centro;
+    this->vel = p.vel;
+    this->color = p.color;
+    this->radio = p.radio;
+    this->should_del = p.should_del;
+}
+
 Proyectil::Proyectil(Vector2 fuente, float direccion, Color color)
 {
-    Vector2 vect_uni;
     this->color = color;
     rebotes_cont = 0;
     radio = RAD_PYTL;

@@ -15,6 +15,19 @@ bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2);
 array<Texture2D, 3> obtenerTanque(Color color);
 void comunicacionClient(SOCKET clientSocket);
 bool colorCmpS(Color c1, Color c2);
+
+void listener();
+void sendProyectiles(sockaddr_in &to);
+void sendObstaculos(sockaddr_in &to);
+void sendTanques(sockaddr_in &to);
+void sendSonidos(sockaddr_in &to);
+void sendZonas(sockaddr_in &to);
+void sendId(sockaddr_in &to);
+
+void recvDiscon(sockaddr_in &from);
+void recvColor(sockaddr_in &from);
+void recvInput(sockaddr_in &from);
+
 void initObstaculo();
 void drawMiniMapa();
 void drawEscudoCd();
@@ -26,7 +39,6 @@ void drawBorde();
 void drawSuelo();
 void drawVida();
 void initZona();
-bool reconectar(SOCKET &sock);
 
 queue<SoundMsg> cola_sonidos;
 list<Proyectil> proyectiles;
@@ -62,14 +74,19 @@ string ms;
 Camera2D camara;
 
 int current_client;
-Server servidor(SERVER_PORT);
+Server server;
+
+int cont_tanque;
 
 int main()
 {
+    cont_tanque = 0;
+
+    server = Server(PUERTO);
 
     try
     {
-        servidor.configServer();
+        server.configServer();
     }
     catch (const std::exception &e)
     {
@@ -77,167 +94,25 @@ int main()
         return 1;
     }
 
-    current_client = 0;
-
-    list<thread> clientThreads;
-    thread entradaCliente;
-    SOCKET clientSocket;
     thread threadJuego;
-
     threadJuego = thread(updateJuego);
-    tanque_server = new Tanque(BLACK);
+
+    tanque_server = new Tanque(BLUE, cont_tanque++);
     tanques.push_back(tanque_server);
 
     while (true)
     {
-
-        try
-        {
-            clientSocket = servidor.conexionCliente();
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << e.what() << '\n';
-        }
-
-        try
-        {
-            clientThreads.emplace_back(comunicacionClient, clientSocket);
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "excepcion: " << e.what() << std::endl;
-        }
+        listener();
     }
 
-    servidor.closeServer();
+    server.closeServer();
     return 0;
-}
-
-void comunicacionClient(SOCKET clientSocket)
-{
-    auto proyectil = proyectiles.begin();
-    auto obs = obstaculos.begin();
-    auto it = tanques.begin();
-    auto s = sonidos.begin();
-    auto z = zonas.begin();
-
-    list<Proyectil> proyectiles_temp;
-    list<Tanque *> tanques_temp;
-    list<SoundMsg> sonidos_temp;
-
-    Color c;
-    Tanque *t_ptr = NULL;
-
-    int id = current_client++;
-    clients_id.push_back(id);
-
-    char buffer[sizeof(Tanque)];
-    bool conectado = true;
-    int bytes;
-
-    bytes = recv(clientSocket, buffer, sizeof(Color), 0);
-    if (bytes == sizeof(Color))
-    {
-        memcpy(&c, buffer, sizeof(Color));
-        t_ptr = new Tanque(c);
-        tanques.push_back(t_ptr);
-    }
-
-    itoa(obstaculos.size(), buffer, 10);
-    bytes = send(clientSocket, buffer, 5, 0);
-    obs = obstaculos.begin();
-    while (obs != obstaculos.end())
-    {
-        const Obstaculo &proyec = (*obs);
-        bytes = send(clientSocket, reinterpret_cast<const char *>(&proyec), sizeof(Obstaculo), 0);
-        obs++;
-    }
-
-    while (conectado)
-    {
-        // comunicacion input
-        bytes = recv(clientSocket, buffer, 7, 0);
-        if (bytes == 7)
-        {
-            it = tanques.begin();
-            while (it != tanques.end())
-            {
-                if ((*it) == t_ptr)
-                {
-                    (*it)->left_b = buffer[0] == '1' ? true : false;
-                    (*it)->acel_b = buffer[1] == '1' ? true : false;
-                    (*it)->ret_b = buffer[2] == '1' ? true : false;
-                    (*it)->right_b = buffer[3] == '1' ? true : false;
-                    (*it)->click_b = buffer[4] == '1' ? true : false;
-                    (*it)->clickr_b = buffer[5] == '1' ? true : false;
-                }
-                it++;
-            }
-        }
-
-        // comunicacion sonidos
-        itoa(sonidos.size(), buffer, 10);
-        bytes = send(clientSocket, buffer, 4, 0);
-        s = sonidos.begin();
-        while (s != sonidos.end())
-        {
-            const sound_msg &sonido_temp = (sound_msg){(*s).getId(), (*s).getOrg(), (*s).shouldPlay(id)};
-            send(clientSocket, reinterpret_cast<const char *>(&sonido_temp), sizeof(sound_msg), 0);
-            s++;
-        }
-
-        // comunicacion tanques
-        tanques_temp = tanques;
-        itoa(tanques_temp.size(), buffer, 10);
-        bytes = send(clientSocket, buffer, 10, 0);
-        bytes = send(clientSocket, reinterpret_cast<const char *>(&(*t_ptr)), sizeof(Tanque), 0);
-        it = tanques_temp.begin();
-        while (it != tanques_temp.end())
-        {
-            const Tanque *tanque = (*it);
-            if (&(*tanque) != &(*t_ptr))
-            {
-                bytes = send(clientSocket, reinterpret_cast<const char *>(&(*tanque)), sizeof(Tanque), 0);
-            }
-            it++;
-        }
-
-        // comunicacion proyectiles
-        proyectiles_temp = proyectiles;
-        itoa(proyectiles_temp.size(), buffer, 10);
-        bytes = send(clientSocket, buffer, 32, 0);
-        proyectil = proyectiles_temp.begin();
-        while (proyectil != proyectiles_temp.end())
-        {
-            const Proyectil &proyec = (*proyectil);
-            bytes = send(clientSocket, reinterpret_cast<const char *>(&proyec), sizeof(Proyectil), 0);
-            proyectil++;
-        }
-
-        // comunicacion zonas
-        z = zonas.begin();
-        while (z != zonas.end())
-        {
-            const Zona &zona = (*z);
-            bytes = send(clientSocket, reinterpret_cast<const char *>(&zona), sizeof(Zona), 0);
-            z++;
-        }
-        if (bytes < 0)
-        {
-            conectado = false;
-        }
-    }
-
-    closesocket(clientSocket);
-    t_ptr->should_del = true;
-    clients_id.remove(id);
 }
 
 void updateJuego()
 {
     SetTargetFPS(60);
-    InitWindow(GetScreenWidth(), GetScreenHeight(), "Servidor");
+    InitWindow(GetScreenWidth(), GetScreenHeight(), "server");
     SetWindowPosition(0, 10);
 
     InitAudioDevice();
@@ -264,12 +139,11 @@ void updateJuego()
         ClearBackground(BLACK);
         drawSuelo();
         drawBorde();
-
         mtx.lock();
         s = sonidos.begin();
         while (s != sonidos.end())
         {
-            if ((*s).readyToRemove())
+            if (s->readyToRemove())
             {
                 s = sonidos.erase(s);
             }
@@ -278,11 +152,6 @@ void updateJuego()
                 s++;
             }
         }
-        while (!cola_sonidos.empty())
-        {
-            sonidos.push_back(cola_sonidos.front());
-            cola_sonidos.pop();
-        }
         mtx.unlock();
 
         if (!IsSoundPlaying(mov))
@@ -290,7 +159,7 @@ void updateJuego()
             PlaySound(mov);
         }
 
-        if ((tanque_server)->acel_b || (tanque_server)->ret_b || (tanque_server)->left_b || (tanque_server)->right_b)
+        if ((tanque_server)->wasd.up || (tanque_server)->wasd.down || (tanque_server)->wasd.left || (tanque_server)->wasd.right)
         {
             if (actual_pitch != 1.1f)
             {
@@ -333,7 +202,7 @@ void updateJuego()
                     Proyectil nuevo = (*it)->disparar();
                     proyectiles.push_front(nuevo);
                     playEffect(disp, tanque_server->getCentro(), (*it)->getCentro());
-                    cola_sonidos.push(SoundMsg(DISP, clients_id, (*it)->getCentro()));
+                    sonidos.push_back(SoundMsg(DISP, clients_id, (*it)->getCentro()));
                 }
                 catch (const std::exception &e)
                 {
@@ -343,13 +212,13 @@ void updateJuego()
                 {
                     (*it)->danio();
                     playEffect(danio, tanque_server->getCentro(), (*it)->getCentro());
-                    cola_sonidos.push(SoundMsg(DANIO, clients_id, (*it)->getCentro()));
+                    sonidos.push_back(SoundMsg(DANIO, clients_id, (*it)->getCentro()));
                 }
 
                 if ((*it)->escudo())
                 {
                     playEffect(shield, tanque_server->getCentro(), (*it)->getCentro());
-                    cola_sonidos.push(SoundMsg(SHIELD, clients_id, (*it)->getCentro()));
+                    sonidos.push_back(SoundMsg(SHIELD, clients_id, (*it)->getCentro()));
                 }
 
                 it++;
@@ -377,6 +246,7 @@ void updateJuego()
         mtx.unlock();
 
         EndMode2D();
+
         for (auto &zona : zonas)
         {
             zona.update(tanques);
@@ -409,6 +279,9 @@ void updateJuego()
         drawMiniMapa();
         EndDrawing();
     }
+    server.closeServer();
+    CloseWindow();
+    exit(0);
 }
 
 bool colorCmpS(Color c1, Color c2)
@@ -523,7 +396,6 @@ array<Texture2D, 3> obtenerTanque(Color color)
 
 void drawSuelo()
 {
-
     int x, y;
     for (y = -RALTO; y < BORDE_DOWN + RALTO; y += 160)
     {
@@ -553,10 +425,14 @@ void drawEscudoCd()
 {
     int ancho = MeasureText("FPS: 60", 35);
     Color transparent = tanque_server->getColor();
-    string timer = to_string(int(tanque_server->getEscudoTimer() / 60.0f));
-    if (timer != "0")
+    string timer = to_string(int(tanque_server->getEscudoTimer()/ 60.0f)+1);
+    if (tanque_server->getEscudoTimer() != 0)
     {
         transparent = Color{25, 25, 25, 90};
+    }
+    else
+    {
+        timer = '0';
     }
     transparent.a = 90;
 
@@ -707,4 +583,311 @@ bool CheckCollisionRecsss(Rectangle rect1, Rectangle rect2)
 
     // Si hay colisión en ambos ejes, los rectángulos se solapan
     return collisionX && collisionY;
+}
+
+void listener()
+{
+    char buffer[255];
+    sockaddr_in from;
+    socklen_t fromlen = sizeof(from);
+ 
+    int bytesRecv = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (sockaddr *)&from, &fromlen);
+    if (bytesRecv > 0)
+    {
+        if (bytesRecv == 1)
+        {
+            printf("%c", buffer[0]);
+            switch (buffer[0])
+            {
+            case SEND_OBSTACULOS:
+                sendObstaculos(from);
+                break;
+            case SEND_PROYECTILES:
+                sendProyectiles(from);
+                break;
+            case SEND_SONIDOS:
+                sendSonidos(from);
+                break;
+            case SEND_TANQUES:
+                sendTanques(from);
+                break;
+            case SEND_ZONAS:
+                sendZonas(from);
+                break;
+            case SEND_ID:
+                sendId(from);
+                break;
+            case SEND_INPUT:
+                recvInput(from);
+                break;
+            case SEND_COLOR:
+                recvColor(from);
+                break;
+            case SEND_DISCONNECT:
+                recvDiscon(from);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    else
+    {
+        if (bytesRecv < 0)
+        {
+        }
+    }
+    buffer[0] = '\0';
+}
+
+void sendTanques(sockaddr_in &to)
+{
+    int len = tanques.size();
+    _Tanque pack_tanque[len];
+
+    int i = 0;
+    for (auto &tanque : tanques)
+    {
+        pack_tanque[i] = tanque->toStruct();
+        i++;
+    }
+    if (i == len)
+    {
+        int bytes = -1;
+        while (bytes < 0 || bytes != len * (int)sizeof(_Tanque))
+        {
+            bytes = sendto(server.getSocket(), (char *)pack_tanque, sizeof(pack_tanque), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+        //printf("\nbytes enviados tanques: %d\n", bytes);
+    }
+}
+
+void sendProyectiles(sockaddr_in &to)
+{
+    int len = proyectiles.size();
+    if (len > 0)
+    {
+        _Proyectil pack_proyectil[len];
+        int i = 0;
+        for (auto &proyectil : proyectiles)
+        {
+            pack_proyectil[i] = proyectil.toStruct();
+            i++;
+        }
+        if (i == len)
+        {
+            int bytes = -1;
+            while (bytes < 0 || bytes != len * (int)sizeof(_Proyectil))
+            {
+                bytes = sendto(server.getSocket(), (char *)pack_proyectil, sizeof(pack_proyectil), 0, (struct sockaddr *)&to, sizeof(to));
+            }
+            //printf("\nbytes enviados proyectiles: %d\n", bytes);
+        }
+    }
+    else
+    {
+        int bytes = -1;
+        int no_send = 0;
+        while (bytes < 0 || bytes != (int)sizeof(int))
+        {
+            bytes = sendto(server.getSocket(), reinterpret_cast<char *>(&no_send), sizeof(int), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+    }
+}
+
+void sendZonas(sockaddr_in &to)
+{
+    int len = zonas.size();
+    _Zona pack_zona[len];
+
+    int i = 0;
+    for (auto &zona : zonas)
+    {
+        pack_zona[i] = zona.toStruct();
+        i++;
+    }
+
+    if (i == len)
+    {
+        int bytes = -1;
+        while (bytes < 0 || bytes != len * (int)sizeof(_Zona))
+        {
+            bytes = sendto(server.getSocket(), reinterpret_cast<char *>(pack_zona), sizeof(pack_zona), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+    }
+}
+
+void sendObstaculos(sockaddr_in &to)
+{
+    int len = obstaculos.size();
+    _Obstaculo pack_obstaculo[len];
+
+    int i = 0;
+    for (auto &obstaculo : obstaculos)
+    {
+        pack_obstaculo[i] = obstaculo.toStruct();
+        i++;
+    }
+
+    if (i == len)
+    {
+        int bytes = -1;
+        while (bytes < 0 || bytes != len * sizeof(_Obstaculo))
+        {
+            bytes = sendto(server.getSocket(), reinterpret_cast<char *>(pack_obstaculo), sizeof(pack_obstaculo), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+    }
+}
+
+void sendSonidos(sockaddr_in &to)
+{
+    char buffer[50];
+    sockaddr_in newfrom;
+    socklen_t newfromlen = sizeof(newfrom);
+    int len = sonidos.size();
+    int bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(int))
+    {
+        bytes = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (sockaddr *)&newfrom, &newfromlen);
+    }
+
+    int id;
+    memcpy(&id, buffer, sizeof(int));
+    _SoundMsg pack_sonido_temp[len];
+    int i = 0;
+    int k = 0;
+    int count_should_play = 0;
+    for (auto &sonido : sonidos)
+    {
+        if (sonido.shouldPlay(id))
+        {
+            _SoundMsg temp = sonido.toStruct();
+            pack_sonido_temp[count_should_play++] = temp;
+        }
+        i++;
+    }
+
+    if (len > 0 && count_should_play > 0)
+    {
+        if (i == len)
+        {
+            _SoundMsg pack_sonido[count_should_play];
+            for (int j = 0; j < count_should_play; j++)
+            {
+                pack_sonido[j] = pack_sonido_temp[j];
+            }
+            bytes = -1;
+            while (bytes < 0 || bytes != (int)sizeof(pack_sonido))
+            {
+                bytes = sendto(server.getSocket(), reinterpret_cast<char *>(pack_sonido), sizeof(pack_sonido), 0, (struct sockaddr *)&to, sizeof(to));
+            }
+        }
+    }
+    else
+    {
+        bytes = -1;
+        while (bytes < 0 || bytes != (int)sizeof(int))
+        {
+            bytes = sendto(server.getSocket(), reinterpret_cast<char *>(&len), sizeof(int), 0, (struct sockaddr *)&to, sizeof(to));
+        }
+    }
+}
+
+void sendId(sockaddr_in &to)
+{
+    int id = cont_tanque++;
+    int bytes = -1;
+    int id_asign = -1;
+    char buffer[500];
+    sockaddr_in from;
+    socklen_t fromlen;
+    while (bytes < 0)
+    {
+        bytes = sendto(server.getSocket(), reinterpret_cast<char *>(&id), sizeof(int), 0, (struct sockaddr *)&to, sizeof(to));
+    }
+
+    while (id_asign != id)
+    {
+        bytes = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromlen);
+        if (bytes == (int)sizeof(int))
+            memcpy(&id_asign, buffer, sizeof(int));
+    }
+    clients_id.push_back(id_asign);
+}
+
+void recvColor(sockaddr_in &from)
+{
+    char buffer[5000];
+    sockaddr_in newfrom;
+    socklen_t newfromlen = sizeof(newfrom);
+    int bytes;
+    bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(_PeticionTanque))
+    {
+        bytes = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (struct sockaddr *)&newfrom, &newfromlen);
+    }
+
+    _PeticionTanque pt;
+    memcpy(&pt, buffer, sizeof(_PeticionTanque));
+    tanques.push_back(new Tanque(pt.color, pt.id));
+}
+
+void recvInput(sockaddr_in &from)
+{
+    char buffer[500];
+    sockaddr_in newfrom;
+    socklen_t fromlen;
+
+    int bytes = -1;
+    while (bytes < 0)
+    {
+        bytes = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (sockaddr *)&from, &fromlen);
+    }
+    int bits[7];
+
+    memcpy(&bits, buffer, 7 * (int)sizeof(int));
+
+    for (auto &tanque : tanques)
+    {
+        if (tanque->id == bits[6])
+        {
+            tanque->wasd.left = bits[0] == 1 ? true : false;
+            tanque->wasd.up = bits[1] == 1 ? true : false;
+            tanque->wasd.down = bits[2] == 1 ? true : false;
+            tanque->wasd.right = bits[3] == 1 ? true : false;
+            tanque->click_b = bits[4] == 1 ? true : false;
+            tanque->clickr_b = bits[5] == 1 ? true : false;
+        }
+    }
+}
+
+void recvDiscon(sockaddr_in &from)
+{
+    char buffer[500];
+    sockaddr_in newfrom;
+    socklen_t fromlen;
+
+    int bytes = -1;
+    while (bytes < 0 || bytes != (int)sizeof(int))
+    {
+        printf("\nesperando id a desconectar\n");
+        bytes = recvfrom(server.getSocket(), buffer, sizeof(buffer), 0, (sockaddr *)&from, &fromlen);
+    }
+
+    int id;
+    memcpy(&id, buffer, sizeof(int));
+    printf("\nrecibio id a desconectar: %d \n", id);
+
+    auto it = tanques.begin();
+    while (it != tanques.end())
+    {
+        printf("iterator id: %d idclient: %d", (*it)->id, id);
+        if ((*it)->id == id)
+        {
+            tanques.erase(it);
+        }
+        it++;
+    }
+
+    printf("\ntanque eliminado\n");
 }

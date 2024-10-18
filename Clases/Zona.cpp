@@ -1,5 +1,28 @@
 #include "Zona.h"
 
+_Zona Zona::toStruct()
+{
+    _Zona z;
+    z.pos = pos;
+    z.color = color;
+    z.anime_b = anime_b;
+    for(int i=0;i<9;i++)
+    {
+        z.timer[i] = timer[i];
+    }
+    return z;
+}
+
+Zona::Zona(_Zona &z)
+{
+    this->pos = z.pos;
+    this->color = z.color;
+    this->anime_b = z.anime_b;
+    for(int i=0;i<9;i++)
+    {
+        this->timer[i] = z.timer[i];
+    }
+}
 bool colorCmpZ(Color c1, Color c2)
 {
     if (c1.r == c2.r)
@@ -14,6 +37,7 @@ bool colorCmpZ(Color c1, Color c2)
     }
     return false;
 }
+
 
 Color getColorOnArray(int key)
 {

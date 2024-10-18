@@ -2,6 +2,8 @@
 
 class Client
 {
+private:
+    
     SOCKET clientSocket;
     WSADATA wsData;
     sockaddr_in serverAddr;
@@ -9,8 +11,12 @@ class Client
     int puerto;
 
 public:
+    int id;
     Client(){};
-    Client(string ip, int puerto);
-    SOCKET configConexion();
+    Client(string ip,int puerto);
+    SOCKET getSocket(){return clientSocket;};
+    void configConexion();
     void close();
+    sockaddr_in getServerAddr(){return serverAddr;};
+    int getId(){return id;};
 };

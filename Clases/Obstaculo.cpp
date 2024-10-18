@@ -1,5 +1,17 @@
 #include "Obstaculo.h"
 
+_Obstaculo Obstaculo::toStruct()
+{
+    _Obstaculo o;
+    o = pos;
+    return o;
+}
+
+Obstaculo::Obstaculo(_Obstaculo &o)
+{
+    pos = o;
+}
+
 Obstaculo::Obstaculo(Vector2 inicio)
 {
     int num;
